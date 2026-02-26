@@ -7,7 +7,7 @@ from datetime import datetime
 # Set to True to completely reset the database on startup
 # ===============================
 
-isResetDatabaseOnStartup = True  # <-- set to True if you want to reset
+isResetDatabaseOnStartup = False  # <-- set to True if you want to reset
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///vehicles.db"

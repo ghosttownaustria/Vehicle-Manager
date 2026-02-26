@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a href="{{ url_for('addVehicle') }}">Add Vehicle</a>
+
+<ul>
+    {% for vehicle in vehicles %}
+        <li>
+            <a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
+                {{ vehicle.displayName }}
+            </a>
+            (VIN: {{ vehicle.vin }})
+        </li>
+    {% endfor %}
+</ul>
+
+{% endblock %}

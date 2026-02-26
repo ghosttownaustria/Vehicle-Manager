@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Edit Work Time</h2>
+
+<!-- SAVE FORM -->
+<form method="post">
+    <div class="mb-3">
+        <label class="form-label">Description</label>
+        <input type="text" name="description" value="{{ workTime.description }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Hours</label>
+        <input type="number" step="0.1" name="hours" value="{{ workTime.hours }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Worked by</label>
+        <input type="text" name="person" value="{{ workTime.person }}" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Date & Time</label>
+        <input type="datetime-local" name="date" class="form-control"
+               value="{{ workTime.date.strftime('%Y-%m-%dT%H:%M') }}">
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+</form>
+
+<hr>
+
+<!-- DELETE FORM -->
+<form method="post" action="{{ url_for('deleteTime', timeId=workTime.id) }}">
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this work time?')">
+        Delete Work Time
+    </button>
+</form>
+
+<br>
+<a href="{{ url_for('vehicle', vehicleId=workTime.vehicle.id) }}" class="btn btn-secondary">
+    Back to Vehicle
+</a>
+
+{% endblock %}

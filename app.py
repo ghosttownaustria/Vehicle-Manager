@@ -1,19 +1,61 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+
+from functools import wraps
+
+
+def loginRequired(f):
+    @wraps(f)
+    def decoratedFunction(*args, **kwargs):
+        if "userId" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decoratedFunction
 
 # ===============================
 # DATABASE RESET SWITCH
 # Set to True to completely reset the database on startup
 # ===============================
 
-isResetDatabaseOnStartup = True  # <-- set to True if you want to reset
+isResetDatabaseOnStartup = False  # <-- set to True if you want to reset
 
 app = Flask(__name__)
+app.secret_key = "CHANGE_THIS_TO_RANDOM_SECRET_KEY_123456"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///vehicles.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    passwordHash = db.Column(db.String(200), nullable=False)
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"]
+        password = request.form["password"]
+
+        user = User.query.filter_by(email=email).first()
+
+        if user and check_password_hash(user.passwordHash, password):
+            session["userId"] = user.id
+            return redirect(url_for("index"))
+
+        return "Invalid credentials"
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 class Vehicle(db.Model):
@@ -51,12 +93,14 @@ class WorkTime(db.Model):
 
 
 @app.route("/")
+@loginRequired
 def index():
     vehicles = Vehicle.query.all()
     return render_template("index.html", vehicles=vehicles)
 
 
 @app.route("/add_vehicle", methods=["GET", "POST"])
+@loginRequired
 def addVehicle():
     if request.method == "POST":
         brand = request.form["brand"]
@@ -77,6 +121,7 @@ def addVehicle():
 
 
 @app.route("/vehicle/<int:vehicleId>", methods=["GET", "POST"])
+@loginRequired
 def vehicle(vehicleId):
     vehicle = Vehicle.query.get_or_404(vehicleId)
 
@@ -139,6 +184,7 @@ def vehicle(vehicleId):
 
 
 @app.route("/edit_vehicle/<int:vehicleId>", methods=["GET", "POST"])
+@loginRequired
 def editVehicle(vehicleId):
     vehicle = Vehicle.query.get_or_404(vehicleId)
 
@@ -154,6 +200,7 @@ def editVehicle(vehicleId):
 
 
 @app.route("/edit_cost/<int:costId>", methods=["GET", "POST"])
+@loginRequired
 def editCost(costId):
     cost = Cost.query.get_or_404(costId)
 
@@ -175,6 +222,7 @@ def editCost(costId):
 
 
 @app.route("/edit_time/<int:timeId>", methods=["GET", "POST"])
+@loginRequired
 def editTime(timeId):
     workTime = WorkTime.query.get_or_404(timeId)
 
@@ -196,6 +244,7 @@ def editTime(timeId):
 
 
 @app.route("/delete_cost/<int:costId>", methods=["POST"])
+@loginRequired
 def deleteCost(costId):
     cost = Cost.query.get_or_404(costId)
     vehicleId = cost.vehicle.id
@@ -207,6 +256,7 @@ def deleteCost(costId):
 
 
 @app.route("/delete_time/<int:timeId>", methods=["POST"])
+@loginRequired
 def deleteTime(timeId):
     workTime = WorkTime.query.get_or_404(timeId)
     vehicleId = workTime.vehicle.id
@@ -218,6 +268,7 @@ def deleteTime(timeId):
 
 
 @app.route("/delete_vehicle/<int:vehicleId>", methods=["POST"])
+@loginRequired
 def deleteVehicle(vehicleId):
     vehicle = Vehicle.query.get_or_404(vehicleId)
 
@@ -242,8 +293,8 @@ if __name__ == "__main__":
             db.drop_all()
             db.create_all()
             print("Database recreated.")
-
         else:
             db.create_all()
 
-    app.run(debug=True)
+    # Make the app accessible in the local network
+    app.run(host="0.0.0.0", port=5000, debug=True)

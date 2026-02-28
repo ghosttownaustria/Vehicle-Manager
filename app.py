@@ -242,8 +242,8 @@ if __name__ == "__main__":
             db.drop_all()
             db.create_all()
             print("Database recreated.")
-
         else:
             db.create_all()
 
-    app.run(debug=True)
+    # Make the app accessible in the local network
+    app.run(host="0.0.0.0", port=5000, debug=True)

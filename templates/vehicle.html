@@ -14,6 +14,19 @@
     Edit Vehicle
 </a>
 
+<h3>Vehicle Data</h3>
+
+<ul>
+<li>First Registration: {{ vehicle.firstRegistration }}</li>
+<li>Engine Oil: {{ vehicle.engineOil }}</li>
+<li>Gearbox Oil: {{ vehicle.gearboxOil }}</li>
+<li>Diff Oil: {{ vehicle.diffOil }}</li>
+<li>Coolant: {{ vehicle.coolant }}</li>
+<li>Fuel: {{ vehicle.fuel }}</li>
+<li>Engine Code: {{ vehicle.engineCode }}</li>
+<li>License Plate: {{ vehicle.licensePlate }}</li>
+</ul>
+
 <hr>
 
 <h3>Total Cost: {{ totalCost }} €</h3>
@@ -43,7 +56,7 @@
 
 <h3>Costs</h3>
 <ul>
-{% for cost in vehicle.costs %}
+{% for cost in costs %}
     <li>
         {{ cost.date.strftime('%Y-%m-%d %H:%M') }} -
         {{ cost.description }} -
@@ -59,7 +72,7 @@
 
 <h3>Work Times</h3>
 <ul>
-{% for time in vehicle.times %}
+{% for time in times %}
     <li>
         {{ time.date.strftime('%Y-%m-%d %H:%M') }} -
         {{ time.description }} -

@@ -60,9 +60,19 @@ def logout():
 
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+
     brand = db.Column(db.String(100), nullable=False)
     model = db.Column(db.String(100), nullable=False)
     vin = db.Column(db.String(50), nullable=False)
+
+    firstRegistration = db.Column(db.String(20))
+    engineOil = db.Column(db.String(50))
+    gearboxOil = db.Column(db.String(50))
+    diffOil = db.Column(db.String(50))
+    coolant = db.Column(db.String(50))
+    fuel = db.Column(db.String(50))
+    engineCode = db.Column(db.String(50))
+    licensePlate = db.Column(db.String(20))
 
     costs = db.relationship("Cost", backref="vehicle", lazy=True)
     times = db.relationship("WorkTime", backref="vehicle", lazy=True)
@@ -102,21 +112,30 @@ def index():
 @app.route("/add_vehicle", methods=["GET", "POST"])
 @loginRequired
 def addVehicle():
+
     if request.method == "POST":
-        brand = request.form["brand"]
-        model = request.form["model"]
-        vin = request.form["vin"]
 
         newVehicle = Vehicle(
-            brand=brand,
-            model=model,
-            vin=vin
+            brand=request.form["brand"],
+            model=request.form["model"],
+            vin=request.form["vin"],
+
+            firstRegistration=request.form["firstRegistration"],
+            engineOil=request.form["engineOil"],
+            gearboxOil=request.form["gearboxOil"],
+            diffOil=request.form["diffOil"],
+            coolant=request.form["coolant"],
+            fuel=request.form["fuel"],
+            engineCode=request.form["engineCode"],
+            licensePlate=request.form["licensePlate"]
         )
 
         db.session.add(newVehicle)
         db.session.commit()
+
         return redirect(url_for("index"))
 
+    # VERY IMPORTANT → return page if GET request
     return render_template("add_vehicle.html")
 
 
@@ -175,25 +194,42 @@ def vehicle(vehicleId):
     totalCost = sum(c.amount for c in vehicle.costs)
     totalHours = sum(t.hours for t in vehicle.times)
 
+    sortedCosts = Cost.query.filter_by(vehicle_id=vehicle.id).order_by(Cost.date.desc()).all()
+    sortedTimes = WorkTime.query.filter_by(vehicle_id=vehicle.id).order_by(WorkTime.date.desc()).all()
+
     return render_template(
         "vehicle.html",
         vehicle=vehicle,
         totalCost=totalCost,
-        totalHours=totalHours
+        totalHours=totalHours,
+        costs=sortedCosts,
+        times=sortedTimes
     )
 
 
 @app.route("/edit_vehicle/<int:vehicleId>", methods=["GET", "POST"])
 @loginRequired
 def editVehicle(vehicleId):
+
     vehicle = Vehicle.query.get_or_404(vehicleId)
 
     if request.method == "POST":
+
         vehicle.brand = request.form["brand"]
         vehicle.model = request.form["model"]
         vehicle.vin = request.form["vin"]
 
+        vehicle.firstRegistration = request.form["firstRegistration"]
+        vehicle.engineOil = request.form["engineOil"]
+        vehicle.gearboxOil = request.form["gearboxOil"]
+        vehicle.diffOil = request.form["diffOil"]
+        vehicle.coolant = request.form["coolant"]
+        vehicle.fuel = request.form["fuel"]
+        vehicle.engineCode = request.form["engineCode"]
+        vehicle.licensePlate = request.form["licensePlate"]
+
         db.session.commit()
+
         return redirect(url_for("vehicle", vehicleId=vehicle.id))
 
     return render_template("edit_vehicle.html", vehicle=vehicle)

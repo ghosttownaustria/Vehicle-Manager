@@ -1,12 +1,73 @@
 {% extends "base.html" %}
 {% block content %}
 
-<form method="post">
-    <input type="text" name="brand" placeholder="Brand" required><br><br>
-    <input type="text" name="model" placeholder="Model" required><br><br>
-    <input type="text" name="vin" placeholder="VIN" required><br><br>
+<h2>Add Vehicle</h2>
 
-    <button type="submit">Add Vehicle</button>
+<form method="post">
+
+    <div class="mb-3">
+        <label class="form-label">Brand</label>
+        <input type="text" name="brand" class="form-control" placeholder="Brand" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Model</label>
+        <input type="text" name="model" class="form-control" placeholder="Model" required>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">VIN</label>
+        <input type="text" name="vin" class="form-control" placeholder="VIN" required>
+    </div>
+
+    <hr>
+
+    <h3>Vehicle Details</h3>
+
+    <div class="mb-3">
+        <label class="form-label">First Registration</label>
+        <input type="text" name="firstRegistration" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Engine Oil</label>
+        <input type="text" name="engineOil" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Gearbox Oil</label>
+        <input type="text" name="gearboxOil" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Diff Oil</label>
+        <input type="text" name="diffOil" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Coolant</label>
+        <input type="text" name="coolant" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Fuel</label>
+        <input type="text" name="fuel" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Engine Code</label>
+        <input type="text" name="engineCode" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">License Plate</label>
+        <input type="text" name="licensePlate" class="form-control">
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        Add Vehicle
+    </button>
+
 </form>
 
 {% endblock %}

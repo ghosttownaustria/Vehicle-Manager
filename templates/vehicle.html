@@ -43,7 +43,7 @@
 
 <h3>Costs</h3>
 <ul>
-{% for cost in vehicle.costs %}
+{% for cost in costs %}
     <li>
         {{ cost.date.strftime('%Y-%m-%d %H:%M') }} -
         {{ cost.description }} -
@@ -59,7 +59,7 @@
 
 <h3>Work Times</h3>
 <ul>
-{% for time in vehicle.times %}
+{% for time in times %}
     <li>
         {{ time.date.strftime('%Y-%m-%d %H:%M') }} -
         {{ time.description }} -

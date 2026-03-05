@@ -175,11 +175,16 @@ def vehicle(vehicleId):
     totalCost = sum(c.amount for c in vehicle.costs)
     totalHours = sum(t.hours for t in vehicle.times)
 
+    sortedCosts = Cost.query.filter_by(vehicle_id=vehicle.id).order_by(Cost.date.desc()).all()
+    sortedTimes = WorkTime.query.filter_by(vehicle_id=vehicle.id).order_by(WorkTime.date.desc()).all()
+
     return render_template(
         "vehicle.html",
         vehicle=vehicle,
         totalCost=totalCost,
-        totalHours=totalHours
+        totalHours=totalHours,
+        costs=sortedCosts,
+        times=sortedTimes
     )
 
 

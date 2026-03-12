@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Order: {{ order.title }}</h2>
+
+<p>{{ order.description }}</p>
+
+<a href="{{ url_for('vehicle', vehicleId=order.vehicle.id) }}">
+← Back to Vehicle
+</a>
+
+<hr>
+
+<h3>Summary</h3>
+
+<p>Total Income: {{ totalIncome }} €</p>
+<p>Total Costs: {{ totalCost }} €</p>
+<p>Result: {{ result }} €</p>
+<p>Total Hours: {{ totalHours }} h</p>
+
+<hr>
+
+<h3>Add Cost</h3>
+
+<form method="post">
+<input type="text" name="description" placeholder="Description" required><br><br>
+<input type="number" step="0.01" name="amount" placeholder="Amount" required><br><br>
+<input type="text" name="person" placeholder="Paid by" required><br><br>
+
+<button type="submit" name="cost_submit">
+Add Cost
+</button>
+</form>
+
+<hr>
+
+<h3>Add Work Time</h3>
+
+<form method="post">
+<input type="text" name="description" placeholder="Description" required><br><br>
+<input type="number" step="0.1" name="hours" placeholder="Hours" required><br><br>
+<input type="text" name="person" placeholder="Worked by" required><br><br>
+
+<button type="submit" name="time_submit">
+Add Work Time
+</button>
+</form>
+
+<hr>
+
+<h3>Add Income</h3>
+
+<form method="post">
+<input type="text" name="description" placeholder="Description" required><br><br>
+<input type="number" step="0.01" name="amount" placeholder="Amount" required><br><br>
+<input type="text" name="person" placeholder="Received by" required><br><br>
+
+<button type="submit" name="income_submit">
+Add Income
+</button>
+</form>
+
+<hr>
+
+<h2>Costs</h2>
+
+<ul>
+{% for cost in costs %}
+<li>
+{{ cost.description }} - {{ cost.amount }} € - {{ cost.person }}
+</li>
+{% endfor %}
+</ul>
+
+<h2>Work Times</h2>
+
+<ul>
+{% for time in times %}
+<li>
+{{ time.description }} - {{ time.hours }} h - {{ time.person }}
+</li>
+{% endfor %}
+</ul>
+
+<h2>Income</h2>
+
+<ul>
+{% for income in incomes %}
+<li>
+{{ income.description }} - {{ income.amount }} € - {{ income.person }}
+</li>
+{% endfor %}
+</ul>
+
+{% endblock %}

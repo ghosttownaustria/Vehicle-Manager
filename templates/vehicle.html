@@ -1,18 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>{{ vehicle.name }}</h2>
+<h2>{{ vehicle.displayName }}</h2>
 
 <p><strong>VIN:</strong> {{ vehicle.vin }}</p>
 
-<a href="{{ url_for('index') }}">
-    ← Back to Overview
-</a>
+<a href="{{ url_for('index') }}">← Back to Overview</a> |
+<a href="{{ url_for('editVehicle', vehicleId=vehicle.id) }}">Edit Vehicle</a>
 
-|
-<a href="{{ url_for('editVehicle', vehicleId=vehicle.id) }}">
-    Edit Vehicle
-</a>
+<hr>
 
 <h3>Vehicle Data</h3>
 
@@ -29,60 +25,27 @@
 
 <hr>
 
-<h3>Total Cost: {{ totalCost }} €</h3>
-<h3>Total Hours: {{ totalHours }} h</h3>
+<h3>Vehicle Summary</h3>
+
+<p>Total Income: {{ totalIncome }} €</p>
+<p>Total Expenses: {{ totalCost }} €</p>
+<p>Result: {{ result }} €</p>
 
 <hr>
 
-<h3>Add Cost</h3>
-<form method="post">
-    <input type="text" name="cost_description" placeholder="Description" required><br><br>
-    <input type="number" step="0.01" name="amount" placeholder="Amount" required><br><br>
-    <input type="text" name="cost_person" placeholder="Paid by" required><br><br>
-    <input type="datetime-local" name="cost_date"><br><br>
-    <button type="submit" name="cost_submit">Add Cost</button>
-</form>
+<h2>Orders</h2>
 
-<h3>Add Work Time</h3>
-<form method="post">
-    <input type="text" name="time_description" placeholder="Description" required><br><br>
-    <input type="number" step="0.1" name="hours" placeholder="Hours" required><br><br>
-    <input type="text" name="time_person" placeholder="Worked by" required><br><br>
-    <input type="datetime-local" name="time_date"><br><br>
-    <button type="submit" name="time_submit">Add Time</button>
-</form>
+<a href="{{ url_for('addOrder', vehicleId=vehicle.id) }}">
+Add Order
+</a>
 
-<hr>
-
-<h3>Costs</h3>
 <ul>
-{% for cost in costs %}
-    <li>
-        {{ cost.date.strftime('%Y-%m-%d %H:%M') }} -
-        {{ cost.description }} -
-        {{ cost.amount }} € -
-        {{ cost.person }}
-
-        <a href="{{ url_for('editCost', costId=cost.id) }}">
-            [Edit]
-        </a>
-    </li>
-{% endfor %}
-</ul>
-
-<h3>Work Times</h3>
-<ul>
-{% for time in times %}
-    <li>
-        {{ time.date.strftime('%Y-%m-%d %H:%M') }} -
-        {{ time.description }} -
-        {{ time.hours }} h -
-        {{ time.person }}
-
-        <a href="{{ url_for('editTime', timeId=time.id) }}">
-            [Edit]
-        </a>
-    </li>
+{% for order in vehicle.orders %}
+<li>
+<a href="{{ url_for('order', orderId=order.id) }}">
+{{ order.title }}
+</a>
+</li>
 {% endfor %}
 </ul>
 

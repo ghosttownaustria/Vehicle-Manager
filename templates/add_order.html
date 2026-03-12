@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Add Order for {{ vehicle.displayName }}</h2>
+
+<a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
+← Back to Vehicle
+</a>
+
+<hr>
+
+<form method="post">
+
+    <div>
+        <label>Title</label><br>
+        <input type="text" name="title" required>
+    </div>
+
+    <br>
+
+    <div>
+        <label>Description</label><br>
+        <textarea name="description"></textarea>
+    </div>
+
+    <br>
+
+    <button type="submit">
+        Create Order
+    </button>
+
+</form>
+
+{% endblock %}

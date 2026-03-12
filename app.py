@@ -61,9 +61,9 @@ def logout():
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
-    brand = db.Column(db.String(100), nullable=False)
-    model = db.Column(db.String(100), nullable=False)
-    vin = db.Column(db.String(50), nullable=False)
+    brand = db.Column(db.String(100))
+    model = db.Column(db.String(100))
+    vin = db.Column(db.String(50))
 
     firstRegistration = db.Column(db.String(20))
     engineOil = db.Column(db.String(50))
@@ -74,32 +74,58 @@ class Vehicle(db.Model):
     engineCode = db.Column(db.String(50))
     licensePlate = db.Column(db.String(20))
 
-    costs = db.relationship("Cost", backref="vehicle", lazy=True)
-    times = db.relationship("WorkTime", backref="vehicle", lazy=True)
+    orders = db.relationship("Order", backref="vehicle", lazy=True)
 
     @property
     def displayName(self):
         return f"{self.brand} {self.model}"
 
 
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    title = db.Column(db.String(200))
+    description = db.Column(db.String(500))
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"))
+
+    costs = db.relationship("Cost", backref="order", lazy=True)
+    times = db.relationship("WorkTime", backref="order", lazy=True)
+    incomes = db.relationship("Income", backref="order", lazy=True)
+
+
 class Cost(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+
     description = db.Column(db.String(200))
     amount = db.Column(db.Float)
     person = db.Column(db.String(100))
-    date = db.Column(db.DateTime, nullable=False)
+    date = db.Column(db.DateTime)
 
-    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
 
 
 class WorkTime(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+
     description = db.Column(db.String(200))
     hours = db.Column(db.Float)
     person = db.Column(db.String(100))
-    date = db.Column(db.DateTime, nullable=False)
+    date = db.Column(db.DateTime)
 
-    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
+
+
+class Income(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    description = db.Column(db.String(200))
+    amount = db.Column(db.Float)
+    person = db.Column(db.String(100))
+    date = db.Column(db.DateTime)
+
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
 
 
 @app.route("/")
@@ -144,6 +170,26 @@ def addVehicle():
 def vehicle(vehicleId):
     vehicle = Vehicle.query.get_or_404(vehicleId)
 
+    totalCost = sum(
+        cost.amount
+        for order in vehicle.orders
+        for cost in order.costs
+    )
+
+    totalHours = sum(
+        time.hours
+        for order in vehicle.orders
+        for time in order.times
+    )
+
+    totalIncome = sum(
+        income.amount
+        for order in vehicle.orders
+        for income in order.incomes
+    )
+
+    result = totalIncome - totalCost
+
     if request.method == "POST":
 
         if "cost_submit" in request.form:
@@ -156,16 +202,6 @@ def vehicle(vehicleId):
                 dateValue = datetime.fromisoformat(dateInput)
             else:
                 dateValue = datetime.utcnow()
-
-            newCost = Cost(
-                description=description,
-                amount=amount,
-                person=person,
-                date=dateValue,
-                vehicle=vehicle
-            )
-
-            db.session.add(newCost)
 
         if "time_submit" in request.form:
             description = request.form["time_description"]
@@ -191,19 +227,31 @@ def vehicle(vehicleId):
         db.session.commit()
         return redirect(url_for("vehicle", vehicleId=vehicle.id))
 
-    totalCost = sum(c.amount for c in vehicle.costs)
-    totalHours = sum(t.hours for t in vehicle.times)
+    totalCost = sum(
+        cost.amount
+        for order in vehicle.orders
+        for cost in order.costs
+    )
 
-    sortedCosts = Cost.query.filter_by(vehicle_id=vehicle.id).order_by(Cost.date.desc()).all()
-    sortedTimes = WorkTime.query.filter_by(vehicle_id=vehicle.id).order_by(WorkTime.date.desc()).all()
+    totalHours = sum(
+        time.hours
+        for order in vehicle.orders
+        for time in order.times
+    )
+
+    totalIncome = sum(
+        income.amount
+        for order in vehicle.orders
+        for income in order.incomes
+    )
 
     return render_template(
         "vehicle.html",
         vehicle=vehicle,
         totalCost=totalCost,
         totalHours=totalHours,
-        costs=sortedCosts,
-        times=sortedTimes
+        totalIncome=totalIncome,
+        result=result
     )
 
 
@@ -252,7 +300,7 @@ def editCost(costId):
             cost.date = datetime.utcnow()
 
         db.session.commit()
-        return redirect(url_for("vehicle", vehicleId=cost.vehicle.id))
+        return redirect(url_for("order", orderId=cost.order.id))
 
     return render_template("edit_cost.html", cost=cost)
 
@@ -283,12 +331,12 @@ def editTime(timeId):
 @loginRequired
 def deleteCost(costId):
     cost = Cost.query.get_or_404(costId)
-    vehicleId = cost.vehicle.id
+    orderId = cost.order.id
 
     db.session.delete(cost)
     db.session.commit()
 
-    return redirect(url_for("vehicle", vehicleId=vehicleId))
+    return redirect(url_for("order", orderId=orderId))
 
 
 @app.route("/delete_time/<int:timeId>", methods=["POST"])
@@ -309,8 +357,18 @@ def deleteVehicle(vehicleId):
     vehicle = Vehicle.query.get_or_404(vehicleId)
 
     # Delete related entries first
-    for cost in vehicle.costs:
-        db.session.delete(cost)
+    for order in vehicle.orders:
+
+        for cost in order.costs:
+            db.session.delete(cost)
+
+        for time in order.times:
+            db.session.delete(time)
+
+        for income in order.incomes:
+            db.session.delete(income)
+
+        db.session.delete(order)
 
     for time in vehicle.times:
         db.session.delete(time)
@@ -319,6 +377,99 @@ def deleteVehicle(vehicleId):
     db.session.commit()
 
     return redirect(url_for("index"))
+
+
+
+@app.route("/vehicle/<int:vehicleId>/add_order", methods=["GET", "POST"])
+@loginRequired
+def addOrder(vehicleId):
+
+    vehicle = Vehicle.query.get_or_404(vehicleId)
+
+    if request.method == "POST":
+
+        newOrder = Order(
+            title=request.form["title"],
+            description=request.form["description"],
+            vehicle=vehicle
+        )
+
+        db.session.add(newOrder)
+        db.session.commit()
+
+        return redirect(url_for("vehicle", vehicleId=vehicle.id))
+
+    return render_template("add_order.html", vehicle=vehicle)
+
+
+@app.route("/order/<int:orderId>", methods=["GET", "POST"])
+@loginRequired
+def order(orderId):
+
+    order = Order.query.get_or_404(orderId)
+
+    if request.method == "POST":
+
+        # ADD COST
+        if "cost_submit" in request.form:
+
+            newCost = Cost(
+                description=request.form["description"],
+                amount=float(request.form["amount"]),
+                person=request.form["person"],
+                date=datetime.utcnow(),
+                order=order
+            )
+
+            db.session.add(newCost)
+
+        # ADD WORK TIME
+        if "time_submit" in request.form:
+
+            newTime = WorkTime(
+                description=request.form["description"],
+                hours=float(request.form["hours"]),
+                person=request.form["person"],
+                date=datetime.utcnow(),
+                order=order
+            )
+
+            db.session.add(newTime)
+
+        # ADD INCOME
+        if "income_submit" in request.form:
+
+            newIncome = Income(
+                description=request.form["description"],
+                amount=float(request.form["amount"]),
+                person=request.form["person"],
+                date=datetime.utcnow(),
+                order=order
+            )
+
+            db.session.add(newIncome)
+
+        db.session.commit()
+
+        return redirect(url_for("order", orderId=order.id))
+
+    totalCost = sum(c.amount for c in order.costs)
+    totalIncome = sum(i.amount for i in order.incomes)
+    totalHours = sum(t.hours for t in order.times)
+
+    result = totalIncome - totalCost
+
+    return render_template(
+        "order.html",
+        order=order,
+        costs=order.costs,
+        times=order.times,
+        incomes=order.incomes,
+        totalCost=totalCost,
+        totalIncome=totalIncome,
+        totalHours=totalHours,
+        result=result
+    )
 
 
 if __name__ == "__main__":

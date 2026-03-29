@@ -1,171 +1,243 @@
 import json
+from app import app, db, User, Vehicle, Order, Cost, WorkTime, Income
+from werkzeug.security import generate_password_hash
 from datetime import datetime
 
-from app import app, db, Vehicle, Cost, WorkTime, User
+def parseDate(dateValue):
+    if dateValue is None:
+        return datetime.utcnow()
 
+    # Already datetime
+    if isinstance(dateValue, datetime):
+        return dateValue
 
-BACKUP_FILE = "database_backup.json"
+    # String → datetime
+    if isinstance(dateValue, str):
+        try:
+            return datetime.fromisoformat(dateValue)
+        except:
+            return datetime.utcnow()
 
+    # Fallback
+    return datetime.utcnow()
 
-def exportDatabase():
-    with app.app_context():
+def clearScreen():
+    print("\n" * 50)
 
-        data = {
-            "users": [],
-            "vehicles": [],
-            "costs": [],
-            "workTimes": []
-        }
+def wait():
+    input("\nPress Enter to continue...")
 
-        for user in User.query.all():
-            data["users"].append({
-                "id": user.id,
-                "email": user.email,
-                "passwordHash": user.passwordHash
-            })
+def listUsers():
+    users = User.query.all()
 
-        for vehicle in Vehicle.query.all():
-            data["vehicles"].append({
-                "id": vehicle.id,
-                "brand": vehicle.brand,
-                "model": vehicle.model,
-                "vin": vehicle.vin
-            })
+    print("\n=== USERS ===")
+    for u in users:
+        print(f"{u.id} - {u.email}")
 
-        for cost in Cost.query.all():
-            data["costs"].append({
-                "id": cost.id,
-                "description": cost.description,
-                "amount": cost.amount,
-                "person": cost.person,
-                "date": cost.date.isoformat(),
-                "vehicle_id": cost.vehicle_id
-            })
+def addUser():
+    print("\n=== ADD USER ===")
+    email = input("Email: ")
+    password = input("Password: ")
 
-        for time in WorkTime.query.all():
-            data["workTimes"].append({
-                "id": time.id,
-                "description": time.description,
-                "hours": time.hours,
-                "person": time.person,
-                "date": time.date.isoformat(),
-                "vehicle_id": time.vehicle_id
-            })
+    user = User(
+        email=email,
+        passwordHash=generate_password_hash(password)
+    )
 
-        with open(BACKUP_FILE, "w") as f:
-            json.dump(data, f, indent=4)
+    db.session.add(user)
+    db.session.commit()
 
-        print("Database exported to", BACKUP_FILE)
+    print("User created.")
 
+def deleteUser():
+    listUsers()
+    userId = int(input("\nUser ID to delete: "))
 
-def importDatabase():
-    with app.app_context():
+    user = User.query.get(userId)
 
-        with open(BACKUP_FILE, "r") as f:
-            data = json.load(f)
-
-        print("Importing database...")
-
-        for userData in data["users"]:
-            user = User(
-                id=userData["id"],
-                email=userData["email"],
-                passwordHash=userData["passwordHash"]
-            )
-            db.session.add(user)
-
-        for vehicleData in data["vehicles"]:
-            vehicle = Vehicle(
-                id=vehicleData["id"],
-                brand=vehicleData["brand"],
-                model=vehicleData["model"],
-                vin=vehicleData["vin"]
-            )
-            db.session.add(vehicle)
-
-        for costData in data["costs"]:
-            cost = Cost(
-                id=costData["id"],
-                description=costData["description"],
-                amount=costData["amount"],
-                person=costData["person"],
-                date=datetime.fromisoformat(costData["date"]),
-                vehicle_id=costData["vehicle_id"]
-            )
-            db.session.add(cost)
-
-        for timeData in data["workTimes"]:
-            workTime = WorkTime(
-                id=timeData["id"],
-                description=timeData["description"],
-                hours=timeData["hours"],
-                person=timeData["person"],
-                date=datetime.fromisoformat(timeData["date"]),
-                vehicle_id=timeData["vehicle_id"]
-            )
-            db.session.add(workTime)
-
+    if user:
+        db.session.delete(user)
         db.session.commit()
+        print("User deleted.")
 
-        print("Import complete")
+def listVehicles():
+    vehicles = Vehicle.query.all()
 
+    print("\n=== VEHICLES ===")
+    for v in vehicles:
+        print(f"{v.id} - {v.brand} {v.model} ({v.vin})")
+
+def listOrders():
+    orders = Order.query.all()
+
+    print("\n=== ORDERS ===")
+    for o in orders:
+        print(f"{o.id} - {o.title} (Vehicle {o.vehicle_id})")
+
+def listAllDetails():
+    print("\n=== FULL DATABASE ===")
+
+    for v in Vehicle.query.all():
+        print(f"\nVehicle {v.id}: {v.brand} {v.model}")
+
+        for o in v.orders:
+            print(f"  Order {o.id}: {o.title}")
+
+            for c in o.costs:
+                print(f"    Cost: {c.description} - {c.amount}€")
+
+            for t in o.times:
+                print(f"    Time: {t.description} - {t.hours}h")
+
+            for i in o.incomes:
+                print(f"    Income: {i.description} - {i.amount}€")
 
 def resetDatabase():
-    with app.app_context():
+    confirm = input("Type YES to reset database: ")
 
-        confirm = input("Type YES to reset the database: ")
-
-        if confirm != "YES":
-            print("Cancelled")
-            return
-
+    if confirm == "YES":
         db.drop_all()
         db.create_all()
+        print("Database reset complete.")
 
-        print("Database reset complete")
+def exportJson():
+    data = []
 
+    for v in Vehicle.query.all():
+        vehicleData = {
+            "brand": v.brand,
+            "model": v.model,
+            "vin": v.vin,
+            "orders": []
+        }
 
-def deleteDatabaseFile():
-    import os
+        for o in v.orders:
+            orderData = {
+                "title": o.title,
+                "description": o.description,
+                "costs": [],
+                "times": [],
+                "incomes": []
+            }
 
-    if os.path.exists("vehicles.db"):
-        os.remove("vehicles.db")
-        print("Database file deleted")
-    else:
-        print("Database file not found")
+            for c in o.costs:
+                orderData["costs"].append({
+                    "description": c.description,
+                    "amount": c.amount,
+                    "person": c.person,
+                    "date": str(c.date)
+                })
 
+            for t in o.times:
+                orderData["times"].append({
+                    "description": t.description,
+                    "hours": t.hours,
+                    "person": t.person,
+                    "date": str(t.date)
+                })
+
+            for i in o.incomes:
+                orderData["incomes"].append({
+                    "description": i.description,
+                    "amount": i.amount,
+                    "person": i.person,
+                    "date": str(i.date)
+                })
+
+            vehicleData["orders"].append(orderData)
+
+        data.append(vehicleData)
+
+    with open("export.json", "w") as f:
+        json.dump(data, f, indent=4)
+
+    print("Exported to export.json")
+
+def importJson():
+    with open("export.json", "r") as f:
+        data = json.load(f)
+
+    for v in data:
+        vehicle = Vehicle(
+            brand=v["brand"],
+            model=v["model"],
+            vin=v["vin"]
+        )
+
+        db.session.add(vehicle)
+        db.session.flush()
+
+        for o in v["orders"]:
+            order = Order(
+                title=o["title"],
+                description=o["description"],
+                vehicle=vehicle
+            )
+
+            db.session.add(order)
+            db.session.flush()
+
+            for c in o["costs"]:
+                db.session.add(Cost(
+                    description=c["description"],
+                    amount=c["amount"],
+                    person=c["person"],
+                    date=parseDate(c.get("date")),
+                    order=order
+                ))
+
+            for t in o["times"]:
+                db.session.add(WorkTime(
+                    description=t["description"],
+                    hours=t["hours"],
+                    person=t["person"],
+                    date=parseDate(t.get("date")),
+                    order=order
+                ))
+
+            for i in o["incomes"]:
+                db.session.add(Income(
+                    description=i["description"],
+                    amount=i["amount"],
+                    person=i["person"],
+                    date=parseDate(i.get("date")),
+                    order=order
+                ))
+
+    db.session.commit()
+    print("Import complete.")
 
 def menu():
-
     while True:
+        clearScreen()
 
-        print("\n=== DATABASE MANAGER ===")
-        print("1 - Export database")
-        print("2 - Import database")
-        print("3 - Reset database")
-        print("4 - Delete database file")
-        print("5 - Exit")
+        print("=== DATABASE MANAGER ===\n")
+        print("1 - List Users")
+        print("2 - Add User")
+        print("3 - Delete User")
+        print("4 - List Vehicles")
+        print("5 - List Orders")
+        print("6 - Full Overview")
+        print("7 - Export JSON")
+        print("8 - Import JSON")
+        print("9 - Reset Database")
+        print("0 - Exit")
 
-        choice = input("Select option: ")
+        choice = input("\nSelect: ")
 
-        if choice == "1":
-            exportDatabase()
+        if choice == "1": listUsers()
+        elif choice == "2": addUser()
+        elif choice == "3": deleteUser()
+        elif choice == "4": listVehicles()
+        elif choice == "5": listOrders()
+        elif choice == "6": listAllDetails()
+        elif choice == "7": exportJson()
+        elif choice == "8": importJson()
+        elif choice == "9": resetDatabase()
+        elif choice == "0": break
 
-        elif choice == "2":
-            importDatabase()
-
-        elif choice == "3":
-            resetDatabase()
-
-        elif choice == "4":
-            deleteDatabaseFile()
-
-        elif choice == "5":
-            break
-
-        else:
-            print("Invalid option")
-
+        wait()
 
 if __name__ == "__main__":
-    menu()
+    with app.app_context():
+        menu()

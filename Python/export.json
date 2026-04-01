@@ -1,0 +1,837 @@
+[
+  {
+        "brand": "Werkstatt",
+        "model": " ",
+        "vin": " ",
+        "orders": [
+            {
+                "title": "ManaY Eta Beta Felgen",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "Felgen Kauf",
+                        "amount": 150.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-01 17:16:11.475656"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Porsche Panamera4 Felgen",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "Felgen Kauf",
+                        "amount": 200.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-01 17:16:26.738196"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "MiM Felgen",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            }
+        ]
+    },
+    {
+        "brand": "Mazda",
+        "model": "MX5 NA",
+        "vin": "JMZNA18B201117441",
+        "orders": [
+            {
+                "title": "Fahrzeug Kauf",
+                "description": "Fahrzeug Kauf",
+                "costs": [
+                    {
+                        "description": "Anzahlung Transport",
+                        "amount": 32.0,
+                        "person": "Jakob W",
+                        "date": "2023-03-07 18:12:00"
+                    },
+                    {
+                        "description": "Fahrzeug Kauf",
+                        "amount": 2500.0,
+                        "person": "Jakob W",
+                        "date": "2023-03-15 18:12:00"
+                    },
+                    {
+                        "description": "Transport",
+                        "amount": 100.0,
+                        "person": "Erich W",
+                        "date": "2023-04-05 18:17:00"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Historische Ausgaben",
+                "description": "Historische Ausgaben.",
+                "costs": [
+                    {
+                        "description": "Einschweisblech Heck",
+                        "amount": 100.0,
+                        "person": "Jakob W",
+                        "date": "2023-03-15 18:11:00"
+                    },
+                    {
+                        "description": "R\u00fccklicher",
+                        "amount": 34.9,
+                        "person": "Jakob W",
+                        "date": "2023-03-16 18:14:00"
+                    },
+                    {
+                        "description": "R\u00fccklichter",
+                        "amount": 58.13,
+                        "person": "Jakob W",
+                        "date": "2023-04-24 18:19:00"
+                    },
+                    {
+                        "description": "Ghost Town Unit",
+                        "amount": 85.49,
+                        "person": "Jakob W",
+                        "date": "2023-12-05 18:26:00"
+                    },
+                    {
+                        "description": "Ghost Town Unit",
+                        "amount": 18.17,
+                        "person": "Jakob W",
+                        "date": "2023-12-10 18:31:00"
+                    },
+                    {
+                        "description": "R\u00fccklichter",
+                        "amount": 35.56,
+                        "person": "Jakob W",
+                        "date": "2024-01-08 18:33:00"
+                    },
+                    {
+                        "description": "Ghost Town Unit Software",
+                        "amount": 18.0,
+                        "person": "Jakob W",
+                        "date": "2024-02-01 18:34:00"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Motor Verkauf",
+                "description": "Motor Verkauf",
+                "costs": [],
+                "times": [],
+                "incomes": [
+                    {
+                        "description": "Motor",
+                        "amount": 1100.0,
+                        "person": "Jakob W",
+                        "date": "2025-06-11 00:00:00"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "brand": "Yamaha",
+        "model": "XS400 2A2",
+        "vin": "2A2071681",
+        "orders": [
+            {
+                "title": "Reparatur",
+                "description": "Motor startet nicht mehr.",
+                "costs": [
+                    {
+                        "description": "4x Vergaser Schwimmerkammerdichtung f\u00fcr Yamaha XS 400",
+                        "amount": 17.95,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:09:48.798031"
+                    },
+                    {
+                        "description": "Z\u00fcndkerzen",
+                        "amount": 8.4,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:16:42.366672"
+                    },
+                    {
+                        "description": "Bremsfl\u00fcssigkeit",
+                        "amount": 7.9,
+                        "person": "Jakob W",
+                        "date": "2026-03-17 09:20:38.807740"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Caf\u00e9 Racer Umbau",
+                "description": "Rahmen\r\nLenker\r\nKupplung und Bremshebel\r\nSitz\r\nKenzeichenhalter\r\nBeleuchtung",
+                "costs": [
+                    {
+                        "description": "Werkzeug + Lack",
+                        "amount": 35.95,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:14:36.197411"
+                    },
+                    {
+                        "description": "Fl\u00fcgelmutter",
+                        "amount": 4.29,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:15:06.249279"
+                    },
+                    {
+                        "description": "Caf\u00e9 Racer teile",
+                        "amount": 446.97,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:17:07.397362"
+                    },
+                    {
+                        "description": "Brems und Kupplungs hebel",
+                        "amount": 130.82,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:17:23.730481"
+                    },
+                    {
+                        "description": "Isoliermaterialien",
+                        "amount": 11.73,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:17:43.037008"
+                    },
+                    {
+                        "description": "Mini LED Kennzeichenbeleuchtung Reflektorhalter oben",
+                        "amount": 50.85,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:17:54.495363"
+                    },
+                    {
+                        "description": "Folien",
+                        "amount": 6.12,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 23:16:28.755592"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Typisierung",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Anmeldung",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Fahrzeugkauf",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "Fahrzeugkauf",
+                        "amount": 920.0,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:15:21.576068"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Erster Fahrzeugumbau",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "3 in 1 R\u00fcckleuchten",
+                        "amount": 77.9,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:15:42.180307"
+                    },
+                    {
+                        "description": "Front Teile",
+                        "amount": 420.04,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:15:55.964155"
+                    },
+                    {
+                        "description": "Klein Teil",
+                        "amount": 11.64,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:16:08.495330"
+                    },
+                    {
+                        "description": "Blinker Relay",
+                        "amount": 23.28,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:16:21.649881"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            }
+        ]
+    },
+    {
+        "brand": "Nissan",
+        "model": "Silvia S12",
+        "vin": "JN100RS12U0526578",
+        "orders": [
+            {
+                "title": "Fahrzeug Kauf",
+                "description": "Fahrzeug Kauf",
+                "costs": [
+                    {
+                        "description": "Kauf\u00fcberpr\u00fcfung beim \u00d6AMTC in Steyr",
+                        "amount": 95.5,
+                        "person": "Jakob W",
+                        "date": "2024-07-05 00:00:00"
+                    },
+                    {
+                        "description": "Anzahlung",
+                        "amount": 2000.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-01 17:12:45.969743"
+                    },
+                    {
+                        "description": "AirTag",
+                        "amount": 25.21,
+                        "person": "Jakob W",
+                        "date": "2024-07-18 00:00:00"
+                    },
+                    {
+                        "description": "Anmeldung",
+                        "amount": 236.2,
+                        "person": "Jakob W",
+                        "date": "2024-07-25 00:00:00"
+                    },
+                    {
+                        "description": "Restzahlung",
+                        "amount": 10000.0,
+                        "person": "Jakob W",
+                        "date": "2024-07-26 00:00:00"
+                    },
+                    {
+                        "description": "\u00dcberstellung",
+                        "amount": 50.0,
+                        "person": "Jakob W",
+                        "date": "2024-07-26 00:00:00"
+                    },
+                    {
+                        "description": "\u00dcberstellung",
+                        "amount": 100.0,
+                        "person": "Jakob W",
+                        "date": "2024-07-26 00:00:00"
+                    },
+                    {
+                        "description": "Lenkrad und Schaltkn\u00fcppel zur\u00fccksenden",
+                        "amount": 4.75,
+                        "person": "Jakob W",
+                        "date": "2024-07-28 00:00:00"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Historische Ausgaben",
+                "description": "Historische Ausgaben",
+                "costs": [
+                    {
+                        "description": "A/C Schalter",
+                        "amount": 49.94,
+                        "person": "Jakob W",
+                        "date": "2024-07-30 00:00:00"
+                    },
+                    {
+                        "description": "Auto Waschen",
+                        "amount": 6.0,
+                        "person": "Jakob W",
+                        "date": "2024-07-31 00:00:00"
+                    },
+                    {
+                        "description": "Tank \u00dcberpr\u00fcfung beim Winkler",
+                        "amount": 20.0,
+                        "person": "Jakob W",
+                        "date": "2024-08-19 00:00:00"
+                    },
+                    {
+                        "description": "Epoxy zum tank flicken",
+                        "amount": 10.29,
+                        "person": "Jakob W",
+                        "date": "2024-08-22 00:00:00"
+                    },
+                    {
+                        "description": "5W-40 5l Mannol \u00d6l",
+                        "amount": 29.61,
+                        "person": "Jakob W",
+                        "date": "2024-09-25 00:00:00"
+                    },
+                    {
+                        "description": "Stellmotor Ausstellfenster",
+                        "amount": 27.0,
+                        "person": "Jakob W",
+                        "date": "2024-10-14 00:00:00"
+                    },
+                    {
+                        "description": "Fernbedienung Batterie",
+                        "amount": 7.99,
+                        "person": "Jakob W",
+                        "date": "2024-09-17 00:00:00"
+                    },
+                    {
+                        "description": "Windows Control Unit Komponenten",
+                        "amount": 45.03,
+                        "person": "Jakob W",
+                        "date": "2024-11-25 00:00:00"
+                    },
+                    {
+                        "description": "Windows Control Unit PCB",
+                        "amount": 33.08,
+                        "person": "Jakob W",
+                        "date": "2024-11-25 00:00:00"
+                    },
+                    {
+                        "description": "Relay Halter Version 1.1",
+                        "amount": 6.88,
+                        "person": "Jakob W",
+                        "date": "2024-12-17 00:00:00"
+                    },
+                    {
+                        "description": "Relay Halter Version 1.0",
+                        "amount": 5.17,
+                        "person": "Jakob W",
+                        "date": "2024-10-16 00:00:00"
+                    },
+                    {
+                        "description": "Fuse Box 1.0",
+                        "amount": 4.33,
+                        "person": "Jakob W",
+                        "date": "2024-10-16 00:00:00"
+                    },
+                    {
+                        "description": "Relay Halter Version 1.2",
+                        "amount": 6.52,
+                        "person": "Jakob W",
+                        "date": "2025-01-14 00:00:00"
+                    },
+                    {
+                        "description": "Zweites paar Stellmotoren mit Stecker und kabel",
+                        "amount": 40.0,
+                        "person": "Jakob W",
+                        "date": "2025-02-02 00:00:00"
+                    },
+                    {
+                        "description": "Windows Control Unit V1.1 PCB",
+                        "amount": 33.93,
+                        "person": "Jakob W",
+                        "date": "2025-02-04 00:00:00"
+                    },
+                    {
+                        "description": "Windows Control Unit V1.1 Komponenten",
+                        "amount": 17.06,
+                        "person": "Jakob W",
+                        "date": "2025-02-04 00:00:00"
+                    },
+                    {
+                        "description": "Windows Control Unit V1.1 Komponenten",
+                        "amount": 3.55,
+                        "person": "Jakob W",
+                        "date": "2025-02-05 00:00:00"
+                    },
+                    {
+                        "description": "Windows Control Unit V1.1 Komponenten",
+                        "amount": 1.76,
+                        "person": "Jakob W",
+                        "date": "2025-02-05 00:00:00"
+                    },
+                    {
+                        "description": "7V-20V to 5V Spanungswandler",
+                        "amount": 9.06,
+                        "person": "Jakob W",
+                        "date": "2025-06-05 00:00:00"
+                    },
+                    {
+                        "description": "R\u00fcckspiegel Aufsatz mit Apple CarPlay Funktion",
+                        "amount": 114.95,
+                        "person": "Jakob W",
+                        "date": "2025-05-31 00:00:00"
+                    },
+                    {
+                        "description": "Mirror Frame, Arm und Back Plate",
+                        "amount": 31.77,
+                        "person": "Jakob W",
+                        "date": "2025-06-10 00:00:00"
+                    },
+                    {
+                        "description": "RP2350B Devboard",
+                        "amount": 11.93,
+                        "person": "Jakob W",
+                        "date": "2025-06-16 00:00:00"
+                    },
+                    {
+                        "description": "Mirror Frame V4",
+                        "amount": 17.03,
+                        "person": "Jakob W",
+                        "date": "2025-06-24 00:00:00"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Fahrzeug Reperatur",
+                "description": "UNfalschadenreperatur",
+                "costs": [
+                    {
+                        "description": "E-Mail Liste von allen Schrotth\u00e4ndler in \u00d6sterreich und Deutschland",
+                        "amount": 45.22,
+                        "person": "Jakob W",
+                        "date": "2024-12-10 00:00:00"
+                    },
+                    {
+                        "description": "Neue Felgen",
+                        "amount": 400.0,
+                        "person": "Jakob W",
+                        "date": "2025-01-19 00:00:00"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            }
+        ]
+    },
+    {
+        "brand": "BMW",
+        "model": "E46 Coup\u00e9",
+        "vin": "WBABL31070JP50387",
+        "orders": [
+            {
+                "title": "Fahrzeug Kauf",
+                "description": "Fahrzeug Kauf",
+                "costs": [
+                    {
+                        "description": "Anzahlung",
+                        "amount": 1700.0,
+                        "person": "Jakob W",
+                        "date": "2025-08-15 16:32:00"
+                    },
+                    {
+                        "description": "Maut",
+                        "amount": 7.0,
+                        "person": "Jakob W",
+                        "date": "2025-08-15 16:33:00"
+                    },
+                    {
+                        "description": "Tank",
+                        "amount": 60.2,
+                        "person": "Jakob W",
+                        "date": "2025-08-15 16:34:00"
+                    },
+                    {
+                        "description": "Essen",
+                        "amount": 32.0,
+                        "person": "Jakob W",
+                        "date": "2025-08-15 16:34:00"
+                    },
+                    {
+                        "description": "Tank",
+                        "amount": 68.29,
+                        "person": "Jakob W",
+                        "date": "2025-08-15 16:44:00"
+                    },
+                    {
+                        "description": "Essen",
+                        "amount": 12.69,
+                        "person": "Jakob W",
+                        "date": "2025-08-15 16:45:00"
+                    },
+                    {
+                        "description": "Anmeldung",
+                        "amount": 277.6,
+                        "person": "Jakob W",
+                        "date": "2025-08-21 16:45:00"
+                    },
+                    {
+                        "description": "Schrauben Kennzeichen",
+                        "amount": 0.51,
+                        "person": "Jakob W",
+                        "date": "2025-08-23 17:17:00"
+                    },
+                    {
+                        "description": "Zugticket",
+                        "amount": 3.0,
+                        "person": "Jakob W",
+                        "date": "2025-08-23 17:18:00"
+                    },
+                    {
+                        "description": "Rest kafpreis",
+                        "amount": 2000.0,
+                        "person": "Jakob W",
+                        "date": "2025-08-29 17:20:00"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Historische Ausgaben",
+                "description": "Historische Ausgaben",
+                "costs": [
+                    {
+                        "description": "Thermostat",
+                        "amount": 104.7,
+                        "person": "Jakob W",
+                        "date": "2026-03-04 14:49:00"
+                    },
+                    {
+                        "description": "Subwoofer Elektronik",
+                        "amount": 21.98,
+                        "person": "Jakob W",
+                        "date": "2025-08-26 17:18:00"
+                    },
+                    {
+                        "description": "Zierleistenklips",
+                        "amount": 7.84,
+                        "person": "Jakob W",
+                        "date": "2025-08-27 17:19:00"
+                    },
+                    {
+                        "description": "Schwarze logos",
+                        "amount": 21.83,
+                        "person": "Jakob W",
+                        "date": "2025-09-26 17:20:00"
+                    },
+                    {
+                        "description": "Service Matterial",
+                        "amount": 60.4,
+                        "person": "Jakob W",
+                        "date": "2025-09-30 17:21:00"
+                    },
+                    {
+                        "description": "Heizungsachlauch",
+                        "amount": 31.7,
+                        "person": "Jakob W",
+                        "date": "2025-10-15 17:22:00"
+                    },
+                    {
+                        "description": "K\u00fchlmittel RS11II",
+                        "amount": 18.5,
+                        "person": "Jakob W",
+                        "date": "2025-10-20 17:22:00"
+                    },
+                    {
+                        "description": "Flansch",
+                        "amount": 25.8,
+                        "person": "Jakob W",
+                        "date": "2025-11-11 17:24:00"
+                    },
+                    {
+                        "description": "Scheiben Frost 10L Konzentrat",
+                        "amount": 19.6,
+                        "person": "Jakob W",
+                        "date": "2025-11-28 17:25:00"
+                    },
+                    {
+                        "description": "Getr\u00e4nkehalter",
+                        "amount": 20.16,
+                        "person": "Jakob W",
+                        "date": "2025-12-10 17:25:00"
+                    },
+                    {
+                        "description": "8,8 Zoll Radio",
+                        "amount": 274.45,
+                        "person": "Jakob W",
+                        "date": "2025-12-22 17:26:00"
+                    },
+                    {
+                        "description": "Destilliertes Wasser",
+                        "amount": 3.49,
+                        "person": "Jakob W",
+                        "date": "2026-03-05 22:39:36.148131"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Zylinderkopfdichtung",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Fl\u00fcssigkeiten",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "\u00c4sthetisch",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            }
+        ]
+    },
+    {
+        "brand": "MINI",
+        "model": "Cooper F56",
+        "vin": "WMWXM510702A28817",
+        "orders": [
+            {
+                "title": "Fahrzeugkauf",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "Fahrzeug Kauf",
+                        "amount": 1100.0,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 16:53:12.142326"
+                    },
+                    {
+                        "description": "Fahrzeug Kauf",
+                        "amount": 1000.0,
+                        "person": "Florian G",
+                        "date": "2026-03-14 16:53:23.658992"
+                    },
+                    {
+                        "description": "Sprit",
+                        "amount": 30.0,
+                        "person": "Florian G",
+                        "date": "2026-03-14 16:54:15.295863"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Reparatur",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "KFZ Gutachten",
+                        "amount": 1.9,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 16:53:53.163774"
+                    },
+                    {
+                        "description": "Feile",
+                        "amount": 5.99,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 16:54:40.761677"
+                    },
+                    {
+                        "description": "Sprays",
+                        "amount": 10.99,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 16:55:42.968697"
+                    },
+                    {
+                        "description": "Federn, Bremsen, Reifen",
+                        "amount": 400.0,
+                        "person": "Florian G",
+                        "date": "2026-03-24 21:42:44.277759"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Fahrzeugverkauf",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "Auszahlung Phill",
+                        "amount": 250.0,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 16:55:01.481387"
+                    },
+                    {
+                        "description": "Willhaben Inserat",
+                        "amount": 79.99,
+                        "person": "Jakob W",
+                        "date": "2026-03-23 19:08:32.790400"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            }
+        ]
+    },
+    {
+        "brand": "Mazda",
+        "model": "323F",
+        "vin": "JMZBG14E200587889",
+        "orders": [
+            {
+                "title": "Getriebe tausch",
+                "description": "",
+                "costs": [],
+                "times": [],
+                "incomes": [
+                    {
+                        "description": "Stunden",
+                        "amount": 400.0,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 22:55:39.619686"
+                    }
+                ]
+            },
+            {
+                "title": "Folien",
+                "description": "",
+                "costs": [
+                    {
+                        "description": "Folien",
+                        "amount": 15.02,
+                        "person": "Jakob W",
+                        "date": "2026-03-14 23:19:23.697947"
+                    }
+                ],
+                "times": [],
+                "incomes": [
+                    {
+                        "description": "Bezahlung",
+                        "amount": 20.0,
+                        "person": "Jakob W",
+                        "date": "2026-03-15 17:55:05.010818"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "brand": "Dacia",
+        "model": "Sandero",
+        "vin": "UU15SDAG352885323",
+        "orders": [
+            {
+                "title": "Frontsto\u00dfstange austausch",
+                "description": "Vorl\u00e4ufig reparieren und austauschen wenn neue Stange da ist.",
+                "costs": [
+                    {
+                        "description": "Frontsto\u00dfstange",
+                        "amount": 103.89,
+                        "person": "Jakob W",
+                        "date": "2026-03-27 20:13:41.718243"
+                    }
+                ],
+                "times": [],
+                "incomes": []
+            }
+        ]
+    }
+]

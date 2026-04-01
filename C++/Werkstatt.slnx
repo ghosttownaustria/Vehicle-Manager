@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Werkstatt/Werkstatt.vcxproj" Id="c0ce812e-6e19-4f23-a088-e65027f75663" />
+</Solution>

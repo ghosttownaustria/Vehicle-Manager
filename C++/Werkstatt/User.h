@@ -7,6 +7,8 @@
 
 using UserId = uint64_t;
 
+constexpr UserId kInvalidDefaultUserId = 0;
+
 
 struct Address {};
 

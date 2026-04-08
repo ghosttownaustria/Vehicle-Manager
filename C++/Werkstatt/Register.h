@@ -5,9 +5,15 @@
 #include <cstdint>
 
 
+#include <chrono>
+#include <vector>
+
+
 #include "User.h"
 #include "Vehicle.h"
 #include "Contract.h"
+
+#include "Timestamp.h"
 
 
 enum class ServiceStatus {
@@ -18,6 +24,15 @@ enum class ServiceStatus {
 
 
 using RegisterId = uint64_t;
+
+constexpr RegisterId kInvalidDefaultRegisterId = 0;
+
+
+struct TimeRegister {
+  Timestamp m_start;
+  Timestamp m_stop;
+  UserId m_userId;
+};
 
 
 class Register {
@@ -34,10 +49,11 @@ protected:
   std::string m_description;
 
 
-  int32_t m_amountCost;
-  int32_t m_amountIncome;
+  float m_amountCost;
+  float m_amountIncome;
   
-  uint32_t m_time;
+
+  std::vector<TimeRegister> m_timeRegisters;
   uint64_t m_date;
   uint32_t m_km;
 

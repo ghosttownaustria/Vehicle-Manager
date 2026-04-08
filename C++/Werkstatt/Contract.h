@@ -10,6 +10,8 @@
 
 using ContractId = uint64_t;
 
+constexpr ContractId kInvalidDefaultContractId = 0;
+
 
 class Contract {
 public:

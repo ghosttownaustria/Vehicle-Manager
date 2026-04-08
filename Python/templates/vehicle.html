@@ -7,8 +7,12 @@
 
 <a href="{{ url_for('index') }}">← Back to Overview</a> |
 <a href="{{ url_for('editVehicle', vehicleId=vehicle.id) }}">Edit Vehicle</a>
+<a href="{{ url_for('printVehicle', vehicleId=vehicle.id) }}">
+    📄 Download Vehicle Report
+</a>
 
 <hr>
+
 
 <h3>Vehicle Data</h3>
 

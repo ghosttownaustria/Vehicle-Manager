@@ -25,9 +25,7 @@ Timestamp::Timestamp(std::string str) {
 
 
 bool Timestamp::SetTimestamp(std::chrono::time_point<std::chrono::system_clock> tp) {
-  m_timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-    tp.time_since_epoch()
-  ).count();
+  m_timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count();
   return true;
 }
 
@@ -60,9 +58,7 @@ bool Timestamp::SetTimestamp(std::string str) {
 
 
 std::chrono::time_point<std::chrono::system_clock> Timestamp::GetTimestamp() {
-  return std::chrono::time_point<std::chrono::system_clock>(
-    std::chrono::milliseconds(m_timestamp)
-  );
+  return std::chrono::time_point<std::chrono::system_clock>(std::chrono::milliseconds(m_timestamp));
 }
 
 

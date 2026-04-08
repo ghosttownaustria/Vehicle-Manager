@@ -3,6 +3,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
+from flask import send_file
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import io
+
 from functools import wraps
 
 
@@ -469,6 +474,88 @@ def order(orderId):
         totalIncome=totalIncome,
         totalHours=totalHours,
         result=result
+    )
+
+
+@app.route("/order/<int:orderId>/print")
+@loginRequired
+def printOrder(orderId):
+
+    order = Order.query.get_or_404(orderId)
+
+    buffer = io.BytesIO()
+
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
+
+    elements = []
+
+    # Titel
+    elements.append(Paragraph(f"Order Report: {order.title}", styles["Title"]))
+    elements.append(Spacer(1, 10))
+
+    elements.append(Paragraph(f"Vehicle: {order.vehicle.displayName}", styles["Normal"]))
+    elements.append(Paragraph(f"Date: {order.date}", styles["Normal"]))
+    elements.append(Spacer(1, 10))
+
+    # Costs
+    elements.append(Paragraph("Costs:", styles["Heading2"]))
+    totalCost = 0
+
+    for c in order.costs:
+        elements.append(Paragraph(
+            f"{c.date.strftime('%Y-%m-%d %H:%M')} - {c.description} - {c.amount}€ ({c.person})",
+            styles["Normal"]
+        ))
+        totalCost += c.amount
+
+    elements.append(Spacer(1, 10))
+
+    # Work
+    elements.append(Paragraph("Work Times:", styles["Heading2"]))
+    totalHours = 0
+
+    for t in order.times:
+        elements.append(Paragraph(
+            f"{t.date.strftime('%Y-%m-%d %H:%M')} - {t.description} - {t.hours}h ({t.person})",
+            styles["Normal"]
+        ))
+        totalHours += t.hours
+
+    elements.append(Spacer(1, 10))
+
+    # Income
+    elements.append(Paragraph("Income:", styles["Heading2"]))
+    totalIncome = 0
+
+    for i in order.incomes:
+        elements.append(Paragraph(
+            f"{i.date.strftime('%Y-%m-%d %H:%M')} - {i.description} - {i.amount}€ ({i.person})",
+            styles["Normal"]
+        ))
+        totalIncome += i.amount
+
+    elements.append(Spacer(1, 20))
+
+    # Summary
+    result = totalIncome - totalCost
+
+    elements.append(Paragraph("Summary:", styles["Heading2"]))
+    elements.append(Paragraph(f"Total Cost: {totalCost} €", styles["Normal"]))
+    elements.append(Paragraph(f"Total Income: {totalIncome} €", styles["Normal"]))
+    elements.append(Paragraph(f"Result: {result} €", styles["Normal"]))
+    elements.append(Paragraph(f"Total Hours: {totalHours} h", styles["Normal"]))
+
+    # PDF bauen
+    doc.build(elements)
+
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"order_{order.id}.pdf",
+        mimetype="application/pdf"
     )
 
 

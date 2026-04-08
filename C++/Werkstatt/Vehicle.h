@@ -10,6 +10,8 @@
 
 using VehicleId = uint64_t;
 
+constexpr VehicleId kInvalidDefaultVehicleId = 0;
+
 
 struct LicensePlate {
   std::string m_country;

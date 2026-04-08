@@ -130,12 +130,14 @@
     <ClCompile Include="Contract.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Register.cpp" />
+    <ClCompile Include="Timestamp.cpp" />
     <ClCompile Include="User.cpp" />
     <ClCompile Include="Vehicle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Contract.h" />
     <ClInclude Include="Register.h" />
+    <ClInclude Include="Timestamp.h" />
     <ClInclude Include="User.h" />
     <ClInclude Include="Vehicle.h" />
   </ItemGroup>

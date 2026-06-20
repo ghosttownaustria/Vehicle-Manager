@@ -1,35 +1,52 @@
-from flask import Flask, render_template, request, redirect, url_for, session
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
-
-from flask import send_file
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
 import io
-
+import os
+from datetime import datetime
 from functools import wraps
 
+from flask import (
+    Flask,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
+from flask_sqlalchemy import SQLAlchemy
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from sqlalchemy import inspect, text
+from werkzeug.security import check_password_hash
 
-def loginRequired(f):
-    @wraps(f)
+
+def loginRequired(function):
+    @wraps(function)
     def decoratedFunction(*args, **kwargs):
         if "userId" not in session:
+            flash("Bitte zuerst anmelden.", "warning")
             return redirect(url_for("login"))
-        return f(*args, **kwargs)
+        return function(*args, **kwargs)
+
     return decoratedFunction
 
-# ===============================
-# DATABASE RESET SWITCH
-# Set to True to completely reset the database on startup
-# ===============================
 
-isResetDatabaseOnStartup = False  # <-- set to True if you want to reset
+# Set to True only when the whole database should be deleted on startup.
+isResetDatabaseOnStartup = False
 
 app = Flask(__name__)
-app.secret_key = "CHANGE_THIS_TO_RANDOM_SECRET_KEY_123456"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///vehicles.db"
+app.secret_key = os.environ.get(
+    "VEHICLE_MANAGER_SECRET_KEY",
+    "CHANGE_THIS_TO_RANDOM_SECRET_KEY_123456",
+)
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "VEHICLE_MANAGER_DATABASE_URI",
+    "sqlite:///vehicles.db",
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "connect_args": {"timeout": 5},
+}
 
 db = SQLAlchemy(app)
 
@@ -38,29 +55,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     passwordHash = db.Column(db.String(200), nullable=False)
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-
-        user = User.query.filter_by(email=email).first()
-
-        if user and check_password_hash(user.passwordHash, password):
-            session["userId"] = user.id
-            return redirect(url_for("index"))
-
-        return "Invalid credentials"
-
-    return render_template("login.html")
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
 
 
 class Vehicle(db.Model):
@@ -79,11 +73,16 @@ class Vehicle(db.Model):
     engineCode = db.Column(db.String(50))
     licensePlate = db.Column(db.String(20))
 
-    orders = db.relationship("Order", backref="vehicle", lazy=True)
+    orders = db.relationship(
+        "Order",
+        backref="vehicle",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
 
     @property
     def displayName(self):
-        return f"{self.brand} {self.model}"
+        return f"{self.brand or ''} {self.model or ''}".strip()
 
 
 class Order(db.Model):
@@ -91,220 +90,441 @@ class Order(db.Model):
 
     title = db.Column(db.String(200))
     description = db.Column(db.String(500))
-    date = db.Column(db.DateTime, default=datetime.utcnow)
+    date = db.Column(db.DateTime, default=datetime.now)
+    isClosed = db.Column(db.Boolean, nullable=False, default=False)
+    closedAt = db.Column(db.DateTime, nullable=True)
 
-    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"))
+    vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
 
-    costs = db.relationship("Cost", backref="order", lazy=True)
-    times = db.relationship("WorkTime", backref="order", lazy=True)
-    incomes = db.relationship("Income", backref="order", lazy=True)
+    costs = db.relationship(
+        "Cost",
+        backref="order",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
+    times = db.relationship(
+        "WorkTime",
+        backref="order",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
+    incomes = db.relationship(
+        "Income",
+        backref="order",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
 
 
 class Cost(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-
     description = db.Column(db.String(200))
     amount = db.Column(db.Float)
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
-
-    order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
 
 
 class WorkTime(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-
     description = db.Column(db.String(200))
     hours = db.Column(db.Float)
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
-
-    order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
 
 
 class Income(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-
     description = db.Column(db.String(200))
     amount = db.Column(db.Float)
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
 
-    order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
+
+def initializeDatabase():
+    """Create new tables and add missing columns to older SQLite databases."""
+    db.create_all()
+
+    inspector = inspect(db.engine)
+    if "order" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("order")}
+    migrations = []
+
+    if "isClosed" not in columns:
+        migrations.append(
+            'ALTER TABLE "order" '
+            'ADD COLUMN "isClosed" BOOLEAN NOT NULL DEFAULT 0'
+        )
+    if "closedAt" not in columns:
+        migrations.append(
+            'ALTER TABLE "order" ADD COLUMN "closedAt" DATETIME'
+        )
+
+    if migrations:
+        with db.engine.begin() as connection:
+            for statement in migrations:
+                connection.execute(text(statement))
+
+
+def parseFormDate(value):
+    if not value:
+        return datetime.now()
+    return datetime.fromisoformat(value)
+
+
+def orderTotals(orderItem):
+    totalCost = sum((item.amount or 0) for item in orderItem.costs)
+    totalIncome = sum((item.amount or 0) for item in orderItem.incomes)
+    totalHours = sum((item.hours or 0) for item in orderItem.times)
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def vehicleTotals(vehicleItem):
+    totalCost = sum(
+        (cost.amount or 0)
+        for orderItem in vehicleItem.orders
+        for cost in orderItem.costs
+    )
+    totalIncome = sum(
+        (income.amount or 0)
+        for orderItem in vehicleItem.orders
+        for income in orderItem.incomes
+    )
+    totalHours = sum(
+        (workTime.hours or 0)
+        for orderItem in vehicleItem.orders
+        for workTime in orderItem.times
+    )
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def closedOrderRedirect(orderItem):
+    flash(
+        "Dieser Auftrag ist abgeschlossen und kann nicht mehr bearbeitet werden.",
+        "warning",
+    )
+    return redirect(url_for("order", orderId=orderItem.id))
+
+
+@app.template_filter("currency")
+def currencyFilter(value):
+    return f"{(value or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+@app.template_filter("dateTime")
+def dateTimeFilter(value):
+    return value.strftime("%d.%m.%Y %H:%M") if value else "–"
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        user = User.query.filter_by(email=email).first()
+
+        if user and check_password_hash(user.passwordHash, password):
+            session["userId"] = user.id
+            flash("Erfolgreich angemeldet.", "success")
+            return redirect(url_for("index"))
+
+        flash("E-Mail-Adresse oder Passwort ist falsch.", "danger")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("Du wurdest abgemeldet.", "info")
+    return redirect(url_for("login"))
 
 
 @app.route("/")
 @loginRequired
 def index():
-    vehicles = Vehicle.query.all()
-    return render_template("index.html", vehicles=vehicles)
+    vehicles = Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all()
+    openOrderCount = Order.query.filter_by(isClosed=False).count()
+    closedOrderCount = Order.query.filter_by(isClosed=True).count()
+    return render_template(
+        "index.html",
+        vehicles=vehicles,
+        openOrderCount=openOrderCount,
+        closedOrderCount=closedOrderCount,
+    )
+
+
+@app.route("/orders")
+@loginRequired
+def orders():
+    showClosed = request.args.get("status") == "closed"
+    orderItems = (
+        Order.query.filter_by(isClosed=showClosed)
+        .order_by(Order.date.desc(), Order.id.desc())
+        .all()
+    )
+    return render_template(
+        "orders.html",
+        orders=orderItems,
+        showClosed=showClosed,
+        openCount=Order.query.filter_by(isClosed=False).count(),
+        closedCount=Order.query.filter_by(isClosed=True).count(),
+    )
 
 
 @app.route("/add_vehicle", methods=["GET", "POST"])
 @loginRequired
 def addVehicle():
-
     if request.method == "POST":
-
         newVehicle = Vehicle(
-            brand=request.form["brand"],
-            model=request.form["model"],
-            vin=request.form["vin"],
-
-            firstRegistration=request.form["firstRegistration"],
-            engineOil=request.form["engineOil"],
-            gearboxOil=request.form["gearboxOil"],
-            diffOil=request.form["diffOil"],
-            coolant=request.form["coolant"],
-            fuel=request.form["fuel"],
-            engineCode=request.form["engineCode"],
-            licensePlate=request.form["licensePlate"]
+            brand=request.form.get("brand", "").strip(),
+            model=request.form.get("model", "").strip(),
+            vin=request.form.get("vin", "").strip(),
+            firstRegistration=request.form.get("firstRegistration", "").strip(),
+            engineOil=request.form.get("engineOil", "").strip(),
+            gearboxOil=request.form.get("gearboxOil", "").strip(),
+            diffOil=request.form.get("diffOil", "").strip(),
+            coolant=request.form.get("coolant", "").strip(),
+            fuel=request.form.get("fuel", "").strip(),
+            engineCode=request.form.get("engineCode", "").strip(),
+            licensePlate=request.form.get("licensePlate", "").strip(),
         )
-
         db.session.add(newVehicle)
         db.session.commit()
+        flash("Fahrzeug wurde angelegt.", "success")
+        return redirect(url_for("vehicle", vehicleId=newVehicle.id))
 
-        return redirect(url_for("index"))
-
-    # VERY IMPORTANT → return page if GET request
     return render_template("add_vehicle.html")
 
 
-@app.route("/vehicle/<int:vehicleId>", methods=["GET", "POST"])
+@app.route("/vehicle/<int:vehicleId>")
 @loginRequired
 def vehicle(vehicleId):
-    vehicle = Vehicle.query.get_or_404(vehicleId)
-
-    totalCost = sum(
-        cost.amount
-        for order in vehicle.orders
-        for cost in order.costs
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    openOrders = sorted(
+        (item for item in vehicleItem.orders if not item.isClosed),
+        key=lambda item: item.date or datetime.min,
+        reverse=True,
     )
-
-    totalHours = sum(
-        time.hours
-        for order in vehicle.orders
-        for time in order.times
+    closedOrders = sorted(
+        (item for item in vehicleItem.orders if item.isClosed),
+        key=lambda item: item.closedAt or item.date or datetime.min,
+        reverse=True,
     )
-
-    totalIncome = sum(
-        income.amount
-        for order in vehicle.orders
-        for income in order.incomes
-    )
-
-    result = totalIncome - totalCost
-
-    if request.method == "POST":
-
-        if "cost_submit" in request.form:
-            description = request.form["cost_description"]
-            amount = float(request.form["amount"])
-            person = request.form["cost_person"]
-            dateInput = request.form["cost_date"]
-
-            if dateInput:
-                dateValue = datetime.fromisoformat(dateInput)
-            else:
-                dateValue = datetime.utcnow()
-
-        if "time_submit" in request.form:
-            description = request.form["time_description"]
-            hours = float(request.form["hours"])
-            person = request.form["time_person"]
-            dateInput = request.form["time_date"]
-
-            if dateInput:
-                dateValue = datetime.fromisoformat(dateInput)
-            else:
-                dateValue = datetime.utcnow()
-
-            newTime = WorkTime(
-                description=description,
-                hours=hours,
-                person=person,
-                date=dateValue,
-                vehicle=vehicle
-            )
-
-            db.session.add(newTime)
-
-        db.session.commit()
-        return redirect(url_for("vehicle", vehicleId=vehicle.id))
-
-    totalCost = sum(
-        cost.amount
-        for order in vehicle.orders
-        for cost in order.costs
-    )
-
-    totalHours = sum(
-        time.hours
-        for order in vehicle.orders
-        for time in order.times
-    )
-
-    totalIncome = sum(
-        income.amount
-        for order in vehicle.orders
-        for income in order.incomes
-    )
+    totalCost, totalIncome, totalHours, result = vehicleTotals(vehicleItem)
 
     return render_template(
         "vehicle.html",
-        vehicle=vehicle,
+        vehicle=vehicleItem,
+        openOrders=openOrders,
+        closedOrders=closedOrders,
         totalCost=totalCost,
         totalHours=totalHours,
         totalIncome=totalIncome,
-        result=result
+        result=result,
     )
 
 
 @app.route("/edit_vehicle/<int:vehicleId>", methods=["GET", "POST"])
 @loginRequired
 def editVehicle(vehicleId):
-
-    vehicle = Vehicle.query.get_or_404(vehicleId)
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
 
     if request.method == "POST":
+        vehicleItem.brand = request.form.get("brand", "").strip()
+        vehicleItem.model = request.form.get("model", "").strip()
+        vehicleItem.vin = request.form.get("vin", "").strip()
+        vehicleItem.firstRegistration = request.form.get(
+            "firstRegistration", ""
+        ).strip()
+        vehicleItem.engineOil = request.form.get("engineOil", "").strip()
+        vehicleItem.gearboxOil = request.form.get("gearboxOil", "").strip()
+        vehicleItem.diffOil = request.form.get("diffOil", "").strip()
+        vehicleItem.coolant = request.form.get("coolant", "").strip()
+        vehicleItem.fuel = request.form.get("fuel", "").strip()
+        vehicleItem.engineCode = request.form.get("engineCode", "").strip()
+        vehicleItem.licensePlate = request.form.get("licensePlate", "").strip()
+        db.session.commit()
+        flash("Fahrzeugdaten wurden gespeichert.", "success")
+        return redirect(url_for("vehicle", vehicleId=vehicleItem.id))
 
-        vehicle.brand = request.form["brand"]
-        vehicle.model = request.form["model"]
-        vehicle.vin = request.form["vin"]
+    return render_template("edit_vehicle.html", vehicle=vehicleItem)
 
-        vehicle.firstRegistration = request.form["firstRegistration"]
-        vehicle.engineOil = request.form["engineOil"]
-        vehicle.gearboxOil = request.form["gearboxOil"]
-        vehicle.diffOil = request.form["diffOil"]
-        vehicle.coolant = request.form["coolant"]
-        vehicle.fuel = request.form["fuel"]
-        vehicle.engineCode = request.form["engineCode"]
-        vehicle.licensePlate = request.form["licensePlate"]
+
+@app.route("/delete_vehicle/<int:vehicleId>", methods=["POST"])
+@loginRequired
+def deleteVehicle(vehicleId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+
+    if any(orderItem.isClosed for orderItem in vehicleItem.orders):
+        flash(
+            "Das Fahrzeug enthält abgeschlossene Aufträge und kann deshalb "
+            "nicht gelöscht werden.",
+            "danger",
+        )
+        return redirect(url_for("editVehicle", vehicleId=vehicleItem.id))
+
+    db.session.delete(vehicleItem)
+    db.session.commit()
+    flash("Fahrzeug wurde gelöscht.", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/vehicle/<int:vehicleId>/add_order", methods=["GET", "POST"])
+@loginRequired
+def addOrder(vehicleId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+
+    if request.method == "POST":
+        newOrder = Order(
+            title=request.form.get("title", "").strip(),
+            description=request.form.get("description", "").strip(),
+            date=parseFormDate(request.form.get("date")),
+            vehicle=vehicleItem,
+        )
+        db.session.add(newOrder)
+        db.session.commit()
+        flash("Auftrag wurde angelegt.", "success")
+        return redirect(url_for("order", orderId=newOrder.id))
+
+    return render_template("add_order.html", vehicle=vehicleItem)
+
+
+@app.route("/order/<int:orderId>", methods=["GET", "POST"])
+@loginRequired
+def order(orderId):
+    orderItem = Order.query.get_or_404(orderId)
+
+    if request.method == "POST":
+        if orderItem.isClosed:
+            return closedOrderRedirect(orderItem)
+
+        description = request.form.get("description", "").strip()
+        person = request.form.get("person", "").strip()
+        entryDate = parseFormDate(request.form.get("date"))
+
+        if "cost_submit" in request.form:
+            db.session.add(
+                Cost(
+                    description=description,
+                    amount=float(request.form["amount"]),
+                    person=person,
+                    date=entryDate,
+                    order=orderItem,
+                )
+            )
+            message = "Ausgabe wurde hinzugefügt."
+        elif "time_submit" in request.form:
+            db.session.add(
+                WorkTime(
+                    description=description,
+                    hours=float(request.form["hours"]),
+                    person=person,
+                    date=entryDate,
+                    order=orderItem,
+                )
+            )
+            message = "Arbeitszeit wurde hinzugefügt."
+        elif "income_submit" in request.form:
+            db.session.add(
+                Income(
+                    description=description,
+                    amount=float(request.form["amount"]),
+                    person=person,
+                    date=entryDate,
+                    order=orderItem,
+                )
+            )
+            message = "Einnahme wurde hinzugefügt."
+        else:
+            flash("Unbekannte Aktion.", "danger")
+            return redirect(url_for("order", orderId=orderItem.id))
 
         db.session.commit()
+        flash(message, "success")
+        return redirect(url_for("order", orderId=orderItem.id))
 
-        return redirect(url_for("vehicle", vehicleId=vehicle.id))
+    totalCost, totalIncome, totalHours, result = orderTotals(orderItem)
+    return render_template(
+        "order.html",
+        order=orderItem,
+        costs=sorted(
+            orderItem.costs,
+            key=lambda item: item.date or datetime.min,
+            reverse=True,
+        ),
+        times=sorted(
+            orderItem.times,
+            key=lambda item: item.date or datetime.min,
+            reverse=True,
+        ),
+        incomes=sorted(
+            orderItem.incomes,
+            key=lambda item: item.date or datetime.min,
+            reverse=True,
+        ),
+        totalCost=totalCost,
+        totalIncome=totalIncome,
+        totalHours=totalHours,
+        result=result,
+    )
 
-    return render_template("edit_vehicle.html", vehicle=vehicle)
+
+@app.route("/order/<int:orderId>/edit", methods=["GET", "POST"])
+@loginRequired
+def editOrder(orderId):
+    orderItem = Order.query.get_or_404(orderId)
+    if orderItem.isClosed:
+        return closedOrderRedirect(orderItem)
+
+    if request.method == "POST":
+        orderItem.title = request.form.get("title", "").strip()
+        orderItem.description = request.form.get("description", "").strip()
+        orderItem.date = parseFormDate(request.form.get("date"))
+        db.session.commit()
+        flash("Auftrag wurde gespeichert.", "success")
+        return redirect(url_for("order", orderId=orderItem.id))
+
+    return render_template("edit_order.html", order=orderItem)
+
+
+@app.route("/order/<int:orderId>/close", methods=["POST"])
+@loginRequired
+def closeOrder(orderId):
+    orderItem = Order.query.get_or_404(orderId)
+
+    if orderItem.isClosed:
+        flash("Der Auftrag ist bereits abgeschlossen.", "info")
+    else:
+        orderItem.isClosed = True
+        orderItem.closedAt = datetime.now()
+        db.session.commit()
+        flash(
+            "Auftrag abgeschlossen. Er ist ab jetzt schreibgeschützt.",
+            "success",
+        )
+
+    return redirect(url_for("order", orderId=orderItem.id))
 
 
 @app.route("/edit_cost/<int:costId>", methods=["GET", "POST"])
 @loginRequired
 def editCost(costId):
     cost = Cost.query.get_or_404(costId)
+    if cost.order.isClosed:
+        return closedOrderRedirect(cost.order)
 
     if request.method == "POST":
-        cost.description = request.form["description"]
+        cost.description = request.form.get("description", "").strip()
         cost.amount = float(request.form["amount"])
-        cost.person = request.form["person"]
-
-        dateInput = request.form["date"]
-        if dateInput:
-            cost.date = datetime.fromisoformat(dateInput)
-        else:
-            cost.date = datetime.utcnow()
-
+        cost.person = request.form.get("person", "").strip()
+        cost.date = parseFormDate(request.form.get("date"))
         db.session.commit()
+        flash("Ausgabe wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=cost.order.id))
 
     return render_template("edit_cost.html", cost=cost)
@@ -314,348 +534,240 @@ def editCost(costId):
 @loginRequired
 def editTime(timeId):
     workTime = WorkTime.query.get_or_404(timeId)
+    if workTime.order.isClosed:
+        return closedOrderRedirect(workTime.order)
 
     if request.method == "POST":
-        workTime.description = request.form["description"]
+        workTime.description = request.form.get("description", "").strip()
         workTime.hours = float(request.form["hours"])
-        workTime.person = request.form["person"]
-
-        dateInput = request.form["date"]
-        if dateInput:
-            workTime.date = datetime.fromisoformat(dateInput)
-        else:
-            workTime.date = datetime.utcnow()
-
+        workTime.person = request.form.get("person", "").strip()
+        workTime.date = parseFormDate(request.form.get("date"))
         db.session.commit()
-        return redirect(url_for("vehicle", vehicleId=workTime.vehicle.id))
+        flash("Arbeitszeit wurde gespeichert.", "success")
+        return redirect(url_for("order", orderId=workTime.order.id))
 
     return render_template("edit_time.html", workTime=workTime)
+
+
+@app.route("/edit_income/<int:incomeId>", methods=["GET", "POST"])
+@loginRequired
+def editIncome(incomeId):
+    income = Income.query.get_or_404(incomeId)
+    if income.order.isClosed:
+        return closedOrderRedirect(income.order)
+
+    if request.method == "POST":
+        income.description = request.form.get("description", "").strip()
+        income.amount = float(request.form["amount"])
+        income.person = request.form.get("person", "").strip()
+        income.date = parseFormDate(request.form.get("date"))
+        db.session.commit()
+        flash("Einnahme wurde gespeichert.", "success")
+        return redirect(url_for("order", orderId=income.order.id))
+
+    return render_template("edit_income.html", income=income)
 
 
 @app.route("/delete_cost/<int:costId>", methods=["POST"])
 @loginRequired
 def deleteCost(costId):
     cost = Cost.query.get_or_404(costId)
-    orderId = cost.order.id
+    orderItem = cost.order
+    if orderItem.isClosed:
+        return closedOrderRedirect(orderItem)
 
     db.session.delete(cost)
     db.session.commit()
-
-    return redirect(url_for("order", orderId=orderId))
+    flash("Ausgabe wurde gelöscht.", "success")
+    return redirect(url_for("order", orderId=orderItem.id))
 
 
 @app.route("/delete_time/<int:timeId>", methods=["POST"])
 @loginRequired
 def deleteTime(timeId):
     workTime = WorkTime.query.get_or_404(timeId)
-    vehicleId = workTime.vehicle.id
+    orderItem = workTime.order
+    if orderItem.isClosed:
+        return closedOrderRedirect(orderItem)
 
     db.session.delete(workTime)
     db.session.commit()
+    flash("Arbeitszeit wurde gelöscht.", "success")
+    return redirect(url_for("order", orderId=orderItem.id))
 
-    return redirect(url_for("vehicle", vehicleId=vehicleId))
 
-
-@app.route("/delete_vehicle/<int:vehicleId>", methods=["POST"])
+@app.route("/delete_income/<int:incomeId>", methods=["POST"])
 @loginRequired
-def deleteVehicle(vehicleId):
-    vehicle = Vehicle.query.get_or_404(vehicleId)
+def deleteIncome(incomeId):
+    income = Income.query.get_or_404(incomeId)
+    orderItem = income.order
+    if orderItem.isClosed:
+        return closedOrderRedirect(orderItem)
 
-    # Delete related entries first
-    for order in vehicle.orders:
-
-        for cost in order.costs:
-            db.session.delete(cost)
-
-        for time in order.times:
-            db.session.delete(time)
-
-        for income in order.incomes:
-            db.session.delete(income)
-
-        db.session.delete(order)
-
-    for time in vehicle.times:
-        db.session.delete(time)
-
-    db.session.delete(vehicle)
+    db.session.delete(income)
     db.session.commit()
-
-    return redirect(url_for("index"))
-
-
-
-@app.route("/vehicle/<int:vehicleId>/add_order", methods=["GET", "POST"])
-@loginRequired
-def addOrder(vehicleId):
-
-    vehicle = Vehicle.query.get_or_404(vehicleId)
-
-    if request.method == "POST":
-
-        newOrder = Order(
-            title=request.form["title"],
-            description=request.form["description"],
-            vehicle=vehicle
-        )
-
-        db.session.add(newOrder)
-        db.session.commit()
-
-        return redirect(url_for("vehicle", vehicleId=vehicle.id))
-
-    return render_template("add_order.html", vehicle=vehicle)
+    flash("Einnahme wurde gelöscht.", "success")
+    return redirect(url_for("order", orderId=orderItem.id))
 
 
-@app.route("/order/<int:orderId>", methods=["GET", "POST"])
-@loginRequired
-def order(orderId):
-
-    order = Order.query.get_or_404(orderId)
-
-    if request.method == "POST":
-
-        # ADD COST
-        if "cost_submit" in request.form:
-
-            newCost = Cost(
-                description=request.form["description"],
-                amount=float(request.form["amount"]),
-                person=request.form["person"],
-                date=datetime.utcnow(),
-                order=order
-            )
-
-            db.session.add(newCost)
-
-        # ADD WORK TIME
-        if "time_submit" in request.form:
-
-            newTime = WorkTime(
-                description=request.form["description"],
-                hours=float(request.form["hours"]),
-                person=request.form["person"],
-                date=datetime.utcnow(),
-                order=order
-            )
-
-            db.session.add(newTime)
-
-        # ADD INCOME
-        if "income_submit" in request.form:
-
-            newIncome = Income(
-                description=request.form["description"],
-                amount=float(request.form["amount"]),
-                person=request.form["person"],
-                date=datetime.utcnow(),
-                order=order
-            )
-
-            db.session.add(newIncome)
-
-        db.session.commit()
-
-        return redirect(url_for("order", orderId=order.id))
-
-    totalCost = sum(c.amount for c in order.costs)
-    totalIncome = sum(i.amount for i in order.incomes)
-    totalHours = sum(t.hours for t in order.times)
-
-    result = totalIncome - totalCost
-
-    return render_template(
-        "order.html",
-        order=order,
-        costs=order.costs,
-        times=order.times,
-        incomes=order.incomes,
-        totalCost=totalCost,
-        totalIncome=totalIncome,
-        totalHours=totalHours,
-        result=result
-    )
+def safePdfDate(value):
+    return value.strftime("%d.%m.%Y %H:%M") if value else "-"
 
 
 @app.route("/order/<int:orderId>/print")
 @loginRequired
 def printOrder(orderId):
-
-    order = Order.query.get_or_404(orderId)
-
+    orderItem = Order.query.get_or_404(orderId)
     buffer = io.BytesIO()
-
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
+    elements = [
+        Paragraph(f"Auftrag: {orderItem.title}", styles["Title"]),
+        Spacer(1, 10),
+        Paragraph(f"Fahrzeug: {orderItem.vehicle.displayName}", styles["Normal"]),
+        Paragraph(f"Datum: {safePdfDate(orderItem.date)}", styles["Normal"]),
+        Paragraph(
+            f"Status: {'Abgeschlossen' if orderItem.isClosed else 'Offen'}",
+            styles["Normal"],
+        ),
+        Spacer(1, 10),
+        Paragraph("Ausgaben", styles["Heading2"]),
+    ]
 
-    elements = []
+    for item in orderItem.costs:
+        elements.append(
+            Paragraph(
+                f"{safePdfDate(item.date)} - {item.description} - "
+                f"{item.amount:.2f} EUR ({item.person})",
+                styles["Normal"],
+            )
+        )
 
-    # Titel
-    elements.append(Paragraph(f"Order Report: {order.title}", styles["Title"]))
-    elements.append(Spacer(1, 10))
+    elements.extend([Spacer(1, 10), Paragraph("Arbeitszeiten", styles["Heading2"])])
+    for item in orderItem.times:
+        elements.append(
+            Paragraph(
+                f"{safePdfDate(item.date)} - {item.description} - "
+                f"{item.hours:.2f} h ({item.person})",
+                styles["Normal"],
+            )
+        )
 
-    elements.append(Paragraph(f"Vehicle: {order.vehicle.displayName}", styles["Normal"]))
-    elements.append(Paragraph(f"Date: {order.date}", styles["Normal"]))
-    elements.append(Spacer(1, 10))
+    elements.extend([Spacer(1, 10), Paragraph("Einnahmen", styles["Heading2"])])
+    for item in orderItem.incomes:
+        elements.append(
+            Paragraph(
+                f"{safePdfDate(item.date)} - {item.description} - "
+                f"{item.amount:.2f} EUR ({item.person})",
+                styles["Normal"],
+            )
+        )
 
-    # Costs
-    elements.append(Paragraph("Costs:", styles["Heading2"]))
-    totalCost = 0
-
-    for c in order.costs:
-        elements.append(Paragraph(
-            f"{c.date.strftime('%Y-%m-%d %H:%M')} - {c.description} - {c.amount}€ ({c.person})",
-            styles["Normal"]
-        ))
-        totalCost += c.amount
-
-    elements.append(Spacer(1, 10))
-
-    # Work
-    elements.append(Paragraph("Work Times:", styles["Heading2"]))
-    totalHours = 0
-
-    for t in order.times:
-        elements.append(Paragraph(
-            f"{t.date.strftime('%Y-%m-%d %H:%M')} - {t.description} - {t.hours}h ({t.person})",
-            styles["Normal"]
-        ))
-        totalHours += t.hours
-
-    elements.append(Spacer(1, 10))
-
-    # Income
-    elements.append(Paragraph("Income:", styles["Heading2"]))
-    totalIncome = 0
-
-    for i in order.incomes:
-        elements.append(Paragraph(
-            f"{i.date.strftime('%Y-%m-%d %H:%M')} - {i.description} - {i.amount}€ ({i.person})",
-            styles["Normal"]
-        ))
-        totalIncome += i.amount
-
-    elements.append(Spacer(1, 20))
-
-    # Summary
-    result = totalIncome - totalCost
-
-    elements.append(Paragraph("Summary:", styles["Heading2"]))
-    elements.append(Paragraph(f"Total Cost: {totalCost} €", styles["Normal"]))
-    elements.append(Paragraph(f"Total Income: {totalIncome} €", styles["Normal"]))
-    elements.append(Paragraph(f"Result: {result} €", styles["Normal"]))
-    elements.append(Paragraph(f"Total Hours: {totalHours} h", styles["Normal"]))
-
-    # PDF bauen
+    totalCost, totalIncome, totalHours, result = orderTotals(orderItem)
+    elements.extend(
+        [
+            Spacer(1, 20),
+            Paragraph("Zusammenfassung", styles["Heading2"]),
+            Paragraph(f"Ausgaben: {totalCost:.2f} EUR", styles["Normal"]),
+            Paragraph(f"Einnahmen: {totalIncome:.2f} EUR", styles["Normal"]),
+            Paragraph(f"Ergebnis: {result:.2f} EUR", styles["Normal"]),
+            Paragraph(f"Arbeitszeit: {totalHours:.2f} h", styles["Normal"]),
+        ]
+    )
     doc.build(elements)
-
     buffer.seek(0)
-
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f"order_{order.id}.pdf",
-        mimetype="application/pdf"
+        download_name=f"auftrag_{orderItem.id}.pdf",
+        mimetype="application/pdf",
     )
 
 
 @app.route("/vehicle/<int:vehicleId>/print")
 @loginRequired
 def printVehicle(vehicleId):
-
-    vehicle = Vehicle.query.get_or_404(vehicleId)
-
-    import io
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
-
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
+    elements = [
+        Paragraph(f"Fahrzeug: {vehicleItem.displayName}", styles["Title"]),
+        Spacer(1, 10),
+        Paragraph(f"FIN/VIN: {vehicleItem.vin or '-'}", styles["Normal"]),
+        Spacer(1, 10),
+    ]
 
-    elements = []
+    for orderItem in vehicleItem.orders:
+        elements.extend(
+            [
+                Paragraph(
+                    f"Auftrag: {orderItem.title} "
+                    f"({'Abgeschlossen' if orderItem.isClosed else 'Offen'})",
+                    styles["Heading2"],
+                ),
+                Paragraph("Ausgaben", styles["Heading3"]),
+            ]
+        )
+        for item in orderItem.costs:
+            elements.append(
+                Paragraph(
+                    f"{safePdfDate(item.date)} - {item.description} - "
+                    f"{item.amount:.2f} EUR ({item.person})",
+                    styles["Normal"],
+                )
+            )
 
-    # Titel
-    elements.append(Paragraph(f"Vehicle Report: {vehicle.displayName}", styles["Title"]))
-    elements.append(Spacer(1, 10))
+        elements.append(Paragraph("Arbeitszeiten", styles["Heading3"]))
+        for item in orderItem.times:
+            elements.append(
+                Paragraph(
+                    f"{safePdfDate(item.date)} - {item.description} - "
+                    f"{item.hours:.2f} h ({item.person})",
+                    styles["Normal"],
+                )
+            )
 
-    elements.append(Paragraph(f"VIN: {vehicle.vin}", styles["Normal"]))
-    elements.append(Spacer(1, 10))
-
-    totalCost = 0
-    totalIncome = 0
-    totalHours = 0
-
-    # Alle Orders durchgehen
-    for order in vehicle.orders:
-
-        elements.append(Paragraph(f"Order: {order.title}", styles["Heading2"]))
-        elements.append(Spacer(1, 5))
-
-        # Costs
-        elements.append(Paragraph("Costs:", styles["Heading3"]))
-        for c in order.costs:
-            elements.append(Paragraph(
-                f"{c.date.strftime('%Y-%m-%d %H:%M')} - {c.description} - {c.amount}€ ({c.person})",
-                styles["Normal"]
-            ))
-            totalCost += c.amount
-
-        elements.append(Spacer(1, 5))
-
-        # Work Times
-        elements.append(Paragraph("Work Times:", styles["Heading3"]))
-        for t in order.times:
-            elements.append(Paragraph(
-                f"{t.date.strftime('%Y-%m-%d %H:%M')} - {t.description} - {t.hours}h ({t.person})",
-                styles["Normal"]
-            ))
-            totalHours += t.hours
-
-        elements.append(Spacer(1, 5))
-
-        # Income
-        elements.append(Paragraph("Income:", styles["Heading3"]))
-        for i in order.incomes:
-            elements.append(Paragraph(
-                f"{i.date.strftime('%Y-%m-%d %H:%M')} - {i.description} - {i.amount}€ ({i.person})",
-                styles["Normal"]
-            ))
-            totalIncome += i.amount
-
+        elements.append(Paragraph("Einnahmen", styles["Heading3"]))
+        for item in orderItem.incomes:
+            elements.append(
+                Paragraph(
+                    f"{safePdfDate(item.date)} - {item.description} - "
+                    f"{item.amount:.2f} EUR ({item.person})",
+                    styles["Normal"],
+                )
+            )
         elements.append(Spacer(1, 15))
 
-    # Gesamtübersicht
-    result = totalIncome - totalCost
-
-    elements.append(Paragraph("Vehicle Summary", styles["Heading2"]))
-    elements.append(Paragraph(f"Total Cost: {totalCost} €", styles["Normal"]))
-    elements.append(Paragraph(f"Total Income: {totalIncome} €", styles["Normal"]))
-    elements.append(Paragraph(f"Result: {result} €", styles["Normal"]))
-    elements.append(Paragraph(f"Total Hours: {totalHours} h", styles["Normal"]))
-
-    # PDF bauen
+    totalCost, totalIncome, totalHours, result = vehicleTotals(vehicleItem)
+    elements.extend(
+        [
+            Paragraph("Fahrzeug-Zusammenfassung", styles["Heading2"]),
+            Paragraph(f"Ausgaben: {totalCost:.2f} EUR", styles["Normal"]),
+            Paragraph(f"Einnahmen: {totalIncome:.2f} EUR", styles["Normal"]),
+            Paragraph(f"Ergebnis: {result:.2f} EUR", styles["Normal"]),
+            Paragraph(f"Arbeitszeit: {totalHours:.2f} h", styles["Normal"]),
+        ]
+    )
     doc.build(elements)
-
     buffer.seek(0)
-
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f"vehicle_{vehicle.id}.pdf",
-        mimetype="application/pdf"
+        download_name=f"fahrzeug_{vehicleItem.id}.pdf",
+        mimetype="application/pdf",
     )
+
+
+with app.app_context():
+    initializeDatabase()
+
 
 if __name__ == "__main__":
     with app.app_context():
-
         if isResetDatabaseOnStartup:
-            print("Resetting database...")
+            print("Datenbank wird zurückgesetzt...")
             db.drop_all()
-            db.create_all()
-            print("Database recreated.")
-        else:
-            db.create_all()
+        initializeDatabase()
 
-    # Make the app accessible in the local network
     app.run(host="0.0.0.0", port=5000, debug=True)

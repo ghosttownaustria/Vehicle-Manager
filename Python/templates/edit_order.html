@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Auftrag bearbeiten · Vehicle Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Auftrag bearbeiten</h1>
+        <p>{{ order.vehicle.displayName }}</p>
+    </div>
+</div>
+<div class="card">
+    <form method="post">
+        <div class="field">
+            <label for="title">Titel</label>
+            <input id="title" type="text" name="title" value="{{ order.title }}" required>
+        </div>
+        <div class="field">
+            <label for="description">Beschreibung</label>
+            <textarea id="description" name="description">{{ order.description or '' }}</textarea>
+        </div>
+        <div class="field">
+            <label for="date">Auftragsdatum</label>
+            <input id="date" type="datetime-local" name="date"
+                   value="{{ order.date.strftime('%Y-%m-%dT%H:%M') if order.date else '' }}">
+        </div>
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Änderungen speichern</button>
+            <a class="btn btn-secondary" href="{{ url_for('order', orderId=order.id) }}">Abbrechen</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

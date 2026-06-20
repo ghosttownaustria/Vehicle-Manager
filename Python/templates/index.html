@@ -1,17 +1,58 @@
 {% extends "base.html" %}
+{% block title %}Fahrzeuge · Vehicle Manager{% endblock %}
 {% block content %}
+<div class="page-header">
+    <div>
+        <h1>Fahrzeuge</h1>
+        <p>Alle Fahrzeuge und ihre aktuellen Aufträge auf einen Blick.</p>
+    </div>
+    <div class="actions">
+        <a class="btn btn-primary" href="{{ url_for('addVehicle') }}">Fahrzeug hinzufügen</a>
+    </div>
+</div>
 
-<a href="{{ url_for('addVehicle') }}">Add Vehicle</a>
+<div class="grid" style="margin-bottom: 22px">
+    <div class="stat span-4">
+        <div class="stat-label">Fahrzeuge</div>
+        <div class="stat-value">{{ vehicles|length }}</div>
+    </div>
+    <div class="stat span-4">
+        <div class="stat-label">Offene Aufträge</div>
+        <div class="stat-value positive">{{ openOrderCount }}</div>
+    </div>
+    <div class="stat span-4">
+        <div class="stat-label">Geschlossene Aufträge</div>
+        <div class="stat-value">{{ closedOrderCount }}</div>
+    </div>
+</div>
 
-<ul>
-    {% for vehicle in vehicles %}
-        <li>
-            <a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
-                {{ vehicle.displayName }}
-            </a>
-            (VIN: {{ vehicle.vin }})
-        </li>
-    {% endfor %}
-</ul>
-
+<div class="card">
+    <div class="card-header">
+        <h2>Fahrzeugliste</h2>
+    </div>
+    {% if vehicles %}
+        <div class="list">
+            {% for vehicle in vehicles %}
+                {% set open_count = vehicle.orders|selectattr('isClosed', 'equalto', false)|list|length %}
+                <a class="list-item" href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
+                    <div>
+                        <div class="list-title">{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}</div>
+                        <div class="list-meta">
+                            {{ vehicle.licensePlate or 'Kein Kennzeichen' }}
+                            · FIN/VIN: {{ vehicle.vin or '–' }}
+                        </div>
+                    </div>
+                    <span class="badge {{ 'badge-open' if open_count else 'badge-closed' }}">
+                        {{ open_count }} offen
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty">
+            Noch keine Fahrzeuge vorhanden.<br>
+            Lege das erste Fahrzeug über „Fahrzeug hinzufügen“ an.
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

@@ -1,0 +1,50 @@
+<div class="grid">
+    <div class="field span-4">
+        <label for="brand">Marke</label>
+        <input id="brand" type="text" name="brand" value="{{ vehicle.brand if vehicle else '' }}" required>
+    </div>
+    <div class="field span-4">
+        <label for="model">Modell</label>
+        <input id="model" type="text" name="model" value="{{ vehicle.model if vehicle else '' }}" required>
+    </div>
+    <div class="field span-4">
+        <label for="licensePlate">Kennzeichen</label>
+        <input id="licensePlate" type="text" name="licensePlate" value="{{ vehicle.licensePlate if vehicle else '' }}">
+    </div>
+    <div class="field span-6">
+        <label for="vin">FIN/VIN</label>
+        <input id="vin" type="text" name="vin" value="{{ vehicle.vin if vehicle else '' }}" required>
+    </div>
+    <div class="field span-6">
+        <label for="firstRegistration">Erstzulassung</label>
+        <input id="firstRegistration" type="text" name="firstRegistration" value="{{ vehicle.firstRegistration if vehicle else '' }}" placeholder="z. B. 05/2018">
+    </div>
+</div>
+
+<h2 class="section-title">Technische Daten</h2>
+<div class="grid">
+    <div class="field span-4">
+        <label for="engineOil">Motoröl</label>
+        <input id="engineOil" type="text" name="engineOil" value="{{ vehicle.engineOil if vehicle else '' }}">
+    </div>
+    <div class="field span-4">
+        <label for="gearboxOil">Getriebeöl</label>
+        <input id="gearboxOil" type="text" name="gearboxOil" value="{{ vehicle.gearboxOil if vehicle else '' }}">
+    </div>
+    <div class="field span-4">
+        <label for="diffOil">Differentialöl</label>
+        <input id="diffOil" type="text" name="diffOil" value="{{ vehicle.diffOil if vehicle else '' }}">
+    </div>
+    <div class="field span-4">
+        <label for="coolant">Kühlmittel</label>
+        <input id="coolant" type="text" name="coolant" value="{{ vehicle.coolant if vehicle else '' }}">
+    </div>
+    <div class="field span-4">
+        <label for="fuel">Kraftstoff</label>
+        <input id="fuel" type="text" name="fuel" value="{{ vehicle.fuel if vehicle else '' }}">
+    </div>
+    <div class="field span-4">
+        <label for="engineCode">Motorkennbuchstabe</label>
+        <input id="engineCode" type="text" name="engineCode" value="{{ vehicle.engineCode if vehicle else '' }}">
+    </div>
+</div>

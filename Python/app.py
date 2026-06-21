@@ -1,4 +1,3 @@
-import io
 import os
 from datetime import datetime
 from functools import wraps
@@ -14,8 +13,7 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from pdfReports import buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
 from werkzeug.security import check_password_hash
 
@@ -610,72 +608,11 @@ def deleteIncome(incomeId):
     return redirect(url_for("order", orderId=orderItem.id))
 
 
-def safePdfDate(value):
-    return value.strftime("%d.%m.%Y %H:%M") if value else "-"
-
-
 @app.route("/order/<int:orderId>/print")
 @loginRequired
 def printOrder(orderId):
     orderItem = Order.query.get_or_404(orderId)
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-    elements = [
-        Paragraph(f"Auftrag: {orderItem.title}", styles["Title"]),
-        Spacer(1, 10),
-        Paragraph(f"Fahrzeug: {orderItem.vehicle.displayName}", styles["Normal"]),
-        Paragraph(f"Datum: {safePdfDate(orderItem.date)}", styles["Normal"]),
-        Paragraph(
-            f"Status: {'Abgeschlossen' if orderItem.isClosed else 'Offen'}",
-            styles["Normal"],
-        ),
-        Spacer(1, 10),
-        Paragraph("Ausgaben", styles["Heading2"]),
-    ]
-
-    for item in orderItem.costs:
-        elements.append(
-            Paragraph(
-                f"{safePdfDate(item.date)} - {item.description} - "
-                f"{item.amount:.2f} EUR ({item.person})",
-                styles["Normal"],
-            )
-        )
-
-    elements.extend([Spacer(1, 10), Paragraph("Arbeitszeiten", styles["Heading2"])])
-    for item in orderItem.times:
-        elements.append(
-            Paragraph(
-                f"{safePdfDate(item.date)} - {item.description} - "
-                f"{item.hours:.2f} h ({item.person})",
-                styles["Normal"],
-            )
-        )
-
-    elements.extend([Spacer(1, 10), Paragraph("Einnahmen", styles["Heading2"])])
-    for item in orderItem.incomes:
-        elements.append(
-            Paragraph(
-                f"{safePdfDate(item.date)} - {item.description} - "
-                f"{item.amount:.2f} EUR ({item.person})",
-                styles["Normal"],
-            )
-        )
-
-    totalCost, totalIncome, totalHours, result = orderTotals(orderItem)
-    elements.extend(
-        [
-            Spacer(1, 20),
-            Paragraph("Zusammenfassung", styles["Heading2"]),
-            Paragraph(f"Ausgaben: {totalCost:.2f} EUR", styles["Normal"]),
-            Paragraph(f"Einnahmen: {totalIncome:.2f} EUR", styles["Normal"]),
-            Paragraph(f"Ergebnis: {result:.2f} EUR", styles["Normal"]),
-            Paragraph(f"Arbeitszeit: {totalHours:.2f} h", styles["Normal"]),
-        ]
-    )
-    doc.build(elements)
-    buffer.seek(0)
+    buffer = buildOrderPdf(orderItem, orderTotals(orderItem))
     return send_file(
         buffer,
         as_attachment=True,
@@ -688,69 +625,7 @@ def printOrder(orderId):
 @loginRequired
 def printVehicle(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-    elements = [
-        Paragraph(f"Fahrzeug: {vehicleItem.displayName}", styles["Title"]),
-        Spacer(1, 10),
-        Paragraph(f"FIN/VIN: {vehicleItem.vin or '-'}", styles["Normal"]),
-        Spacer(1, 10),
-    ]
-
-    for orderItem in vehicleItem.orders:
-        elements.extend(
-            [
-                Paragraph(
-                    f"Auftrag: {orderItem.title} "
-                    f"({'Abgeschlossen' if orderItem.isClosed else 'Offen'})",
-                    styles["Heading2"],
-                ),
-                Paragraph("Ausgaben", styles["Heading3"]),
-            ]
-        )
-        for item in orderItem.costs:
-            elements.append(
-                Paragraph(
-                    f"{safePdfDate(item.date)} - {item.description} - "
-                    f"{item.amount:.2f} EUR ({item.person})",
-                    styles["Normal"],
-                )
-            )
-
-        elements.append(Paragraph("Arbeitszeiten", styles["Heading3"]))
-        for item in orderItem.times:
-            elements.append(
-                Paragraph(
-                    f"{safePdfDate(item.date)} - {item.description} - "
-                    f"{item.hours:.2f} h ({item.person})",
-                    styles["Normal"],
-                )
-            )
-
-        elements.append(Paragraph("Einnahmen", styles["Heading3"]))
-        for item in orderItem.incomes:
-            elements.append(
-                Paragraph(
-                    f"{safePdfDate(item.date)} - {item.description} - "
-                    f"{item.amount:.2f} EUR ({item.person})",
-                    styles["Normal"],
-                )
-            )
-        elements.append(Spacer(1, 15))
-
-    totalCost, totalIncome, totalHours, result = vehicleTotals(vehicleItem)
-    elements.extend(
-        [
-            Paragraph("Fahrzeug-Zusammenfassung", styles["Heading2"]),
-            Paragraph(f"Ausgaben: {totalCost:.2f} EUR", styles["Normal"]),
-            Paragraph(f"Einnahmen: {totalIncome:.2f} EUR", styles["Normal"]),
-            Paragraph(f"Ergebnis: {result:.2f} EUR", styles["Normal"]),
-            Paragraph(f"Arbeitszeit: {totalHours:.2f} h", styles["Normal"]),
-        ]
-    )
-    doc.build(elements)
-    buffer.seek(0)
+    buffer = buildVehiclePdf(vehicleItem, vehicleTotals(vehicleItem))
     return send_file(
         buffer,
         as_attachment=True,

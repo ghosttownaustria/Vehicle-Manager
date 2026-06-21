@@ -3,30 +3,51 @@
         "brand": "Werkstatt",
         "model": " ",
         "vin": " ",
+        "firstRegistration": "",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "",
+        "engineCode": "",
+        "licensePlate": "",
         "orders": [
             {
                 "title": "ManaY Eta Beta Felgen",
                 "description": "",
+                "date": "2026-04-01T20:13:45.368532",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:22:24.924663",
                 "costs": [
                     {
                         "description": "Felgen Kauf",
                         "amount": 150.0,
                         "person": "Jakob W",
-                        "date": "2026-04-01 17:16:11.475656"
+                        "date": "2026-04-01T17:16:11.475656"
                     }
                 ],
                 "times": [],
-                "incomes": []
+                "incomes": [
+                    {
+                        "description": "Verkauf",
+                        "amount": 500.0,
+                        "person": "Jakob W",
+                        "date": "2026-06-20T17:24:39.547770"
+                    }
+                ]
             },
             {
                 "title": "Porsche Panamera4 Felgen",
                 "description": "",
+                "date": "2026-04-01T20:13:45.369786",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [
                     {
                         "description": "Felgen Kauf",
                         "amount": 200.0,
                         "person": "Jakob W",
-                        "date": "2026-04-01 17:16:26.738196"
+                        "date": "2026-04-01T17:16:26.738196"
                     }
                 ],
                 "times": [],
@@ -35,6 +56,19 @@
             {
                 "title": "MiM Felgen",
                 "description": "",
+                "date": "2026-04-01T20:13:45.371540",
+                "isClosed": false,
+                "closedAt": null,
+                "costs": [],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Schrott verkauf",
+                "description": "",
+                "date": "2026-05-09T17:22:29.637442",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [],
                 "times": [],
                 "incomes": []
@@ -45,28 +79,39 @@
         "brand": "Mazda",
         "model": "MX5 NA",
         "vin": "JMZNA18B201117441",
+        "firstRegistration": null,
+        "engineOil": null,
+        "gearboxOil": null,
+        "diffOil": null,
+        "coolant": null,
+        "fuel": null,
+        "engineCode": null,
+        "licensePlate": null,
         "orders": [
             {
                 "title": "Fahrzeug Kauf",
                 "description": "Fahrzeug Kauf",
+                "date": "2026-04-01T20:13:45.372268",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:22:09.558278",
                 "costs": [
                     {
                         "description": "Anzahlung Transport",
                         "amount": 32.0,
                         "person": "Jakob W",
-                        "date": "2023-03-07 18:12:00"
+                        "date": "2023-03-07T18:12:00"
                     },
                     {
                         "description": "Fahrzeug Kauf",
                         "amount": 2500.0,
                         "person": "Jakob W",
-                        "date": "2023-03-15 18:12:00"
+                        "date": "2023-03-15T18:12:00"
                     },
                     {
                         "description": "Transport",
                         "amount": 100.0,
                         "person": "Erich W",
-                        "date": "2023-04-05 18:17:00"
+                        "date": "2023-04-05T18:17:00"
                     }
                 ],
                 "times": [],
@@ -75,48 +120,51 @@
             {
                 "title": "Historische Ausgaben",
                 "description": "Historische Ausgaben.",
+                "date": "2026-04-01T20:13:45.372806",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:22:13.488256",
                 "costs": [
                     {
                         "description": "Einschweisblech Heck",
                         "amount": 100.0,
                         "person": "Jakob W",
-                        "date": "2023-03-15 18:11:00"
+                        "date": "2023-03-15T18:11:00"
                     },
                     {
-                        "description": "R\u00fccklicher",
+                        "description": "Rücklicher",
                         "amount": 34.9,
                         "person": "Jakob W",
-                        "date": "2023-03-16 18:14:00"
+                        "date": "2023-03-16T18:14:00"
                     },
                     {
-                        "description": "R\u00fccklichter",
+                        "description": "Rücklichter",
                         "amount": 58.13,
                         "person": "Jakob W",
-                        "date": "2023-04-24 18:19:00"
+                        "date": "2023-04-24T18:19:00"
                     },
                     {
                         "description": "Ghost Town Unit",
                         "amount": 85.49,
                         "person": "Jakob W",
-                        "date": "2023-12-05 18:26:00"
+                        "date": "2023-12-05T18:26:00"
                     },
                     {
                         "description": "Ghost Town Unit",
                         "amount": 18.17,
                         "person": "Jakob W",
-                        "date": "2023-12-10 18:31:00"
+                        "date": "2023-12-10T18:31:00"
                     },
                     {
-                        "description": "R\u00fccklichter",
+                        "description": "Rücklichter",
                         "amount": 35.56,
                         "person": "Jakob W",
-                        "date": "2024-01-08 18:33:00"
+                        "date": "2024-01-08T18:33:00"
                     },
                     {
                         "description": "Ghost Town Unit Software",
                         "amount": 18.0,
                         "person": "Jakob W",
-                        "date": "2024-02-01 18:34:00"
+                        "date": "2024-02-01T18:34:00"
                     }
                 ],
                 "times": [],
@@ -125,6 +173,9 @@
             {
                 "title": "Motor Verkauf",
                 "description": "Motor Verkauf",
+                "date": "2026-04-01T20:13:45.377005",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:22:01.390466",
                 "costs": [],
                 "times": [],
                 "incomes": [
@@ -132,7 +183,7 @@
                         "description": "Motor",
                         "amount": 1100.0,
                         "person": "Jakob W",
-                        "date": "2025-06-11 00:00:00"
+                        "date": "2025-06-11T00:00:00"
                     }
                 ]
             }
@@ -142,78 +193,104 @@
         "brand": "Yamaha",
         "model": "XS400 2A2",
         "vin": "2A2071681",
+        "firstRegistration": null,
+        "engineOil": null,
+        "gearboxOil": null,
+        "diffOil": null,
+        "coolant": null,
+        "fuel": null,
+        "engineCode": null,
+        "licensePlate": null,
         "orders": [
             {
                 "title": "Reparatur",
                 "description": "Motor startet nicht mehr.",
+                "date": "2026-04-01T20:13:45.380792",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [
                     {
-                        "description": "4x Vergaser Schwimmerkammerdichtung f\u00fcr Yamaha XS 400",
+                        "description": "4x Vergaser Schwimmerkammerdichtung für Yamaha XS 400",
                         "amount": 17.95,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:09:48.798031"
+                        "date": "2026-03-14T22:09:48.798031"
                     },
                     {
-                        "description": "Z\u00fcndkerzen",
+                        "description": "Zündkerzen",
                         "amount": 8.4,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:16:42.366672"
+                        "date": "2026-03-14T22:16:42.366672"
                     },
                     {
-                        "description": "Bremsfl\u00fcssigkeit",
+                        "description": "Bremsflüssigkeit",
                         "amount": 7.9,
                         "person": "Jakob W",
-                        "date": "2026-03-17 09:20:38.807740"
+                        "date": "2026-03-17T09:20:38.807740"
                     }
                 ],
                 "times": [],
                 "incomes": []
             },
             {
-                "title": "Caf\u00e9 Racer Umbau",
+                "title": "Café Racer Umbau",
                 "description": "Rahmen\r\nLenker\r\nKupplung und Bremshebel\r\nSitz\r\nKenzeichenhalter\r\nBeleuchtung",
+                "date": "2026-04-01T20:13:45.381364",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [
                     {
                         "description": "Werkzeug + Lack",
                         "amount": 35.95,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:14:36.197411"
+                        "date": "2026-03-14T22:14:36.197411"
                     },
                     {
-                        "description": "Fl\u00fcgelmutter",
+                        "description": "Flügelmutter",
                         "amount": 4.29,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:15:06.249279"
+                        "date": "2026-03-14T22:15:06.249279"
                     },
                     {
-                        "description": "Caf\u00e9 Racer teile",
+                        "description": "Café Racer teile",
                         "amount": 446.97,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:17:07.397362"
+                        "date": "2026-03-14T22:17:07.397362"
                     },
                     {
                         "description": "Brems und Kupplungs hebel",
                         "amount": 130.82,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:17:23.730481"
+                        "date": "2026-03-14T22:17:23.730481"
                     },
                     {
                         "description": "Isoliermaterialien",
                         "amount": 11.73,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:17:43.037008"
+                        "date": "2026-03-14T22:17:43.037008"
                     },
                     {
                         "description": "Mini LED Kennzeichenbeleuchtung Reflektorhalter oben",
                         "amount": 50.85,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:17:54.495363"
+                        "date": "2026-03-14T22:17:54.495363"
                     },
                     {
                         "description": "Folien",
                         "amount": 6.12,
                         "person": "Jakob W",
-                        "date": "2026-03-14 23:16:28.755592"
+                        "date": "2026-03-14T23:16:28.755592"
+                    },
+                    {
+                        "description": "7\" Halo Scheinwerfer",
+                        "amount": 96.9,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T15:55:12.844292"
+                    },
+                    {
+                        "description": "5,75\" Halo Scheinwerfer",
+                        "amount": 79.9,
+                        "person": "Jakob W",
+                        "date": "2026-06-20T19:20:01.870905"
                     }
                 ],
                 "times": [],
@@ -222,6 +299,9 @@
             {
                 "title": "Typisierung",
                 "description": "",
+                "date": "2026-04-01T20:13:45.382329",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [],
                 "times": [],
                 "incomes": []
@@ -229,6 +309,9 @@
             {
                 "title": "Anmeldung",
                 "description": "",
+                "date": "2026-04-01T20:13:45.383056",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [],
                 "times": [],
                 "incomes": []
@@ -236,12 +319,15 @@
             {
                 "title": "Fahrzeugkauf",
                 "description": "",
+                "date": "2026-04-01T20:13:45.383446",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:21:32.911284",
                 "costs": [
                     {
                         "description": "Fahrzeugkauf",
                         "amount": 920.0,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:15:21.576068"
+                        "date": "2026-03-14T22:15:21.576068"
                     }
                 ],
                 "times": [],
@@ -250,30 +336,33 @@
             {
                 "title": "Erster Fahrzeugumbau",
                 "description": "",
+                "date": "2026-04-01T20:13:45.383905",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:21:27.907741",
                 "costs": [
                     {
-                        "description": "3 in 1 R\u00fcckleuchten",
+                        "description": "3 in 1 Rückleuchten",
                         "amount": 77.9,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:15:42.180307"
+                        "date": "2026-03-14T22:15:42.180307"
                     },
                     {
                         "description": "Front Teile",
                         "amount": 420.04,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:15:55.964155"
+                        "date": "2026-03-14T22:15:55.964155"
                     },
                     {
                         "description": "Klein Teil",
                         "amount": 11.64,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:16:08.495330"
+                        "date": "2026-03-14T22:16:08.495330"
                     },
                     {
                         "description": "Blinker Relay",
                         "amount": 23.28,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:16:21.649881"
+                        "date": "2026-03-14T22:16:21.649881"
                     }
                 ],
                 "times": [],
@@ -285,58 +374,69 @@
         "brand": "Nissan",
         "model": "Silvia S12",
         "vin": "JN100RS12U0526578",
+        "firstRegistration": "",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "",
+        "engineCode": "",
+        "licensePlate": "GU-516PY",
         "orders": [
             {
                 "title": "Fahrzeug Kauf",
                 "description": "Fahrzeug Kauf",
+                "date": "2026-04-01T20:13:45.385297",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:19:58.549848",
                 "costs": [
                     {
-                        "description": "Kauf\u00fcberpr\u00fcfung beim \u00d6AMTC in Steyr",
+                        "description": "Kaufüberprüfung beim ÖAMTC in Steyr",
                         "amount": 95.5,
                         "person": "Jakob W",
-                        "date": "2024-07-05 00:00:00"
+                        "date": "2024-07-05T00:00:00"
                     },
                     {
                         "description": "Anzahlung",
                         "amount": 2000.0,
                         "person": "Jakob W",
-                        "date": "2026-04-01 17:12:45.969743"
+                        "date": "2026-04-01T17:12:45.969743"
                     },
                     {
                         "description": "AirTag",
                         "amount": 25.21,
                         "person": "Jakob W",
-                        "date": "2024-07-18 00:00:00"
+                        "date": "2024-07-18T00:00:00"
                     },
                     {
                         "description": "Anmeldung",
                         "amount": 236.2,
                         "person": "Jakob W",
-                        "date": "2024-07-25 00:00:00"
+                        "date": "2024-07-25T00:00:00"
                     },
                     {
                         "description": "Restzahlung",
                         "amount": 10000.0,
                         "person": "Jakob W",
-                        "date": "2024-07-26 00:00:00"
+                        "date": "2024-07-26T00:00:00"
                     },
                     {
-                        "description": "\u00dcberstellung",
+                        "description": "Überstellung",
                         "amount": 50.0,
                         "person": "Jakob W",
-                        "date": "2024-07-26 00:00:00"
+                        "date": "2024-07-26T00:00:00"
                     },
                     {
-                        "description": "\u00dcberstellung",
+                        "description": "Überstellung",
                         "amount": 100.0,
                         "person": "Jakob W",
-                        "date": "2024-07-26 00:00:00"
+                        "date": "2024-07-26T00:00:00"
                     },
                     {
-                        "description": "Lenkrad und Schaltkn\u00fcppel zur\u00fccksenden",
+                        "description": "Lenkrad und Schaltknüppel zurücksenden",
                         "amount": 4.75,
                         "person": "Jakob W",
-                        "date": "2024-07-28 00:00:00"
+                        "date": "2024-07-28T00:00:00"
                     }
                 ],
                 "times": [],
@@ -345,144 +445,147 @@
             {
                 "title": "Historische Ausgaben",
                 "description": "Historische Ausgaben",
+                "date": "2026-04-01T20:13:45.386254",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:19:54.483834",
                 "costs": [
                     {
                         "description": "A/C Schalter",
                         "amount": 49.94,
                         "person": "Jakob W",
-                        "date": "2024-07-30 00:00:00"
+                        "date": "2024-07-30T00:00:00"
                     },
                     {
                         "description": "Auto Waschen",
                         "amount": 6.0,
                         "person": "Jakob W",
-                        "date": "2024-07-31 00:00:00"
+                        "date": "2024-07-31T00:00:00"
                     },
                     {
-                        "description": "Tank \u00dcberpr\u00fcfung beim Winkler",
+                        "description": "Tank Überprüfung beim Winkler",
                         "amount": 20.0,
                         "person": "Jakob W",
-                        "date": "2024-08-19 00:00:00"
+                        "date": "2024-08-19T00:00:00"
                     },
                     {
                         "description": "Epoxy zum tank flicken",
                         "amount": 10.29,
                         "person": "Jakob W",
-                        "date": "2024-08-22 00:00:00"
+                        "date": "2024-08-22T00:00:00"
                     },
                     {
-                        "description": "5W-40 5l Mannol \u00d6l",
+                        "description": "5W-40 5l Mannol Öl",
                         "amount": 29.61,
                         "person": "Jakob W",
-                        "date": "2024-09-25 00:00:00"
+                        "date": "2024-09-25T00:00:00"
                     },
                     {
                         "description": "Stellmotor Ausstellfenster",
                         "amount": 27.0,
                         "person": "Jakob W",
-                        "date": "2024-10-14 00:00:00"
+                        "date": "2024-10-14T00:00:00"
                     },
                     {
                         "description": "Fernbedienung Batterie",
                         "amount": 7.99,
                         "person": "Jakob W",
-                        "date": "2024-09-17 00:00:00"
+                        "date": "2024-09-17T00:00:00"
                     },
                     {
                         "description": "Windows Control Unit Komponenten",
                         "amount": 45.03,
                         "person": "Jakob W",
-                        "date": "2024-11-25 00:00:00"
+                        "date": "2024-11-25T00:00:00"
                     },
                     {
                         "description": "Windows Control Unit PCB",
                         "amount": 33.08,
                         "person": "Jakob W",
-                        "date": "2024-11-25 00:00:00"
+                        "date": "2024-11-25T00:00:00"
                     },
                     {
                         "description": "Relay Halter Version 1.1",
                         "amount": 6.88,
                         "person": "Jakob W",
-                        "date": "2024-12-17 00:00:00"
+                        "date": "2024-12-17T00:00:00"
                     },
                     {
                         "description": "Relay Halter Version 1.0",
                         "amount": 5.17,
                         "person": "Jakob W",
-                        "date": "2024-10-16 00:00:00"
+                        "date": "2024-10-16T00:00:00"
                     },
                     {
                         "description": "Fuse Box 1.0",
                         "amount": 4.33,
                         "person": "Jakob W",
-                        "date": "2024-10-16 00:00:00"
+                        "date": "2024-10-16T00:00:00"
                     },
                     {
                         "description": "Relay Halter Version 1.2",
                         "amount": 6.52,
                         "person": "Jakob W",
-                        "date": "2025-01-14 00:00:00"
+                        "date": "2025-01-14T00:00:00"
                     },
                     {
                         "description": "Zweites paar Stellmotoren mit Stecker und kabel",
                         "amount": 40.0,
                         "person": "Jakob W",
-                        "date": "2025-02-02 00:00:00"
+                        "date": "2025-02-02T00:00:00"
                     },
                     {
                         "description": "Windows Control Unit V1.1 PCB",
                         "amount": 33.93,
                         "person": "Jakob W",
-                        "date": "2025-02-04 00:00:00"
+                        "date": "2025-02-04T00:00:00"
                     },
                     {
                         "description": "Windows Control Unit V1.1 Komponenten",
                         "amount": 17.06,
                         "person": "Jakob W",
-                        "date": "2025-02-04 00:00:00"
+                        "date": "2025-02-04T00:00:00"
                     },
                     {
                         "description": "Windows Control Unit V1.1 Komponenten",
                         "amount": 3.55,
                         "person": "Jakob W",
-                        "date": "2025-02-05 00:00:00"
+                        "date": "2025-02-05T00:00:00"
                     },
                     {
                         "description": "Windows Control Unit V1.1 Komponenten",
                         "amount": 1.76,
                         "person": "Jakob W",
-                        "date": "2025-02-05 00:00:00"
+                        "date": "2025-02-05T00:00:00"
                     },
                     {
                         "description": "7V-20V to 5V Spanungswandler",
                         "amount": 9.06,
                         "person": "Jakob W",
-                        "date": "2025-06-05 00:00:00"
+                        "date": "2025-06-05T00:00:00"
                     },
                     {
-                        "description": "R\u00fcckspiegel Aufsatz mit Apple CarPlay Funktion",
+                        "description": "Rückspiegel Aufsatz mit Apple CarPlay Funktion",
                         "amount": 114.95,
                         "person": "Jakob W",
-                        "date": "2025-05-31 00:00:00"
+                        "date": "2025-05-31T00:00:00"
                     },
                     {
                         "description": "Mirror Frame, Arm und Back Plate",
                         "amount": 31.77,
                         "person": "Jakob W",
-                        "date": "2025-06-10 00:00:00"
+                        "date": "2025-06-10T00:00:00"
                     },
                     {
                         "description": "RP2350B Devboard",
                         "amount": 11.93,
                         "person": "Jakob W",
-                        "date": "2025-06-16 00:00:00"
+                        "date": "2025-06-16T00:00:00"
                     },
                     {
                         "description": "Mirror Frame V4",
                         "amount": 17.03,
                         "person": "Jakob W",
-                        "date": "2025-06-24 00:00:00"
+                        "date": "2025-06-24T00:00:00"
                     }
                 ],
                 "times": [],
@@ -491,18 +594,21 @@
             {
                 "title": "Fahrzeug Reperatur",
                 "description": "UNfalschadenreperatur",
+                "date": "2026-04-01T20:13:45.387940",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [
                     {
-                        "description": "E-Mail Liste von allen Schrotth\u00e4ndler in \u00d6sterreich und Deutschland",
+                        "description": "E-Mail Liste von allen Schrotthändler in Österreich und Deutschland",
                         "amount": 45.22,
                         "person": "Jakob W",
-                        "date": "2024-12-10 00:00:00"
+                        "date": "2024-12-10T00:00:00"
                     },
                     {
                         "description": "Neue Felgen",
                         "amount": 400.0,
                         "person": "Jakob W",
-                        "date": "2025-01-19 00:00:00"
+                        "date": "2025-01-19T00:00:00"
                     }
                 ],
                 "times": [],
@@ -512,72 +618,83 @@
     },
     {
         "brand": "BMW",
-        "model": "E46 Coup\u00e9",
+        "model": "E46 Coupé",
         "vin": "WBABL31070JP50387",
+        "firstRegistration": "",
+        "engineOil": "10W40",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "Gasolina",
+        "engineCode": "",
+        "licensePlate": "GU-516PY",
         "orders": [
             {
                 "title": "Fahrzeug Kauf",
                 "description": "Fahrzeug Kauf",
+                "date": "2026-04-01T20:13:45.390290",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:18:14.084364",
                 "costs": [
                     {
                         "description": "Anzahlung",
                         "amount": 1700.0,
                         "person": "Jakob W",
-                        "date": "2025-08-15 16:32:00"
+                        "date": "2025-08-15T16:32:00"
                     },
                     {
                         "description": "Maut",
                         "amount": 7.0,
                         "person": "Jakob W",
-                        "date": "2025-08-15 16:33:00"
+                        "date": "2025-08-15T16:33:00"
                     },
                     {
                         "description": "Tank",
                         "amount": 60.2,
                         "person": "Jakob W",
-                        "date": "2025-08-15 16:34:00"
+                        "date": "2025-08-15T16:34:00"
                     },
                     {
                         "description": "Essen",
                         "amount": 32.0,
                         "person": "Jakob W",
-                        "date": "2025-08-15 16:34:00"
+                        "date": "2025-08-15T16:34:00"
                     },
                     {
                         "description": "Tank",
                         "amount": 68.29,
                         "person": "Jakob W",
-                        "date": "2025-08-15 16:44:00"
+                        "date": "2025-08-15T16:44:00"
                     },
                     {
                         "description": "Essen",
                         "amount": 12.69,
                         "person": "Jakob W",
-                        "date": "2025-08-15 16:45:00"
+                        "date": "2025-08-15T16:45:00"
                     },
                     {
                         "description": "Anmeldung",
                         "amount": 277.6,
                         "person": "Jakob W",
-                        "date": "2025-08-21 16:45:00"
+                        "date": "2025-08-21T16:45:00"
                     },
                     {
                         "description": "Schrauben Kennzeichen",
                         "amount": 0.51,
                         "person": "Jakob W",
-                        "date": "2025-08-23 17:17:00"
+                        "date": "2025-08-23T17:17:00"
                     },
                     {
                         "description": "Zugticket",
                         "amount": 3.0,
                         "person": "Jakob W",
-                        "date": "2025-08-23 17:18:00"
+                        "date": "2025-08-23T17:18:00"
                     },
                     {
                         "description": "Rest kafpreis",
                         "amount": 2000.0,
                         "person": "Jakob W",
-                        "date": "2025-08-29 17:20:00"
+                        "date": "2025-08-29T17:20:00"
                     }
                 ],
                 "times": [],
@@ -586,78 +703,69 @@
             {
                 "title": "Historische Ausgaben",
                 "description": "Historische Ausgaben",
+                "date": "2026-04-01T20:13:45.391234",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:18:32.812862",
                 "costs": [
                     {
                         "description": "Thermostat",
                         "amount": 104.7,
                         "person": "Jakob W",
-                        "date": "2026-03-04 14:49:00"
-                    },
-                    {
-                        "description": "Subwoofer Elektronik",
-                        "amount": 21.98,
-                        "person": "Jakob W",
-                        "date": "2025-08-26 17:18:00"
+                        "date": "2026-03-04T14:49:00"
                     },
                     {
                         "description": "Zierleistenklips",
                         "amount": 7.84,
                         "person": "Jakob W",
-                        "date": "2025-08-27 17:19:00"
+                        "date": "2025-08-27T17:19:00"
                     },
                     {
                         "description": "Schwarze logos",
                         "amount": 21.83,
                         "person": "Jakob W",
-                        "date": "2025-09-26 17:20:00"
+                        "date": "2025-09-26T17:20:00"
                     },
                     {
                         "description": "Service Matterial",
                         "amount": 60.4,
                         "person": "Jakob W",
-                        "date": "2025-09-30 17:21:00"
+                        "date": "2025-09-30T17:21:00"
                     },
                     {
                         "description": "Heizungsachlauch",
                         "amount": 31.7,
                         "person": "Jakob W",
-                        "date": "2025-10-15 17:22:00"
+                        "date": "2025-10-15T17:22:00"
                     },
                     {
-                        "description": "K\u00fchlmittel RS11II",
+                        "description": "Kühlmittel RS11II",
                         "amount": 18.5,
                         "person": "Jakob W",
-                        "date": "2025-10-20 17:22:00"
+                        "date": "2025-10-20T17:22:00"
                     },
                     {
                         "description": "Flansch",
                         "amount": 25.8,
                         "person": "Jakob W",
-                        "date": "2025-11-11 17:24:00"
+                        "date": "2025-11-11T17:24:00"
                     },
                     {
                         "description": "Scheiben Frost 10L Konzentrat",
                         "amount": 19.6,
                         "person": "Jakob W",
-                        "date": "2025-11-28 17:25:00"
+                        "date": "2025-11-28T17:25:00"
                     },
                     {
-                        "description": "Getr\u00e4nkehalter",
+                        "description": "Getränkehalter",
                         "amount": 20.16,
                         "person": "Jakob W",
-                        "date": "2025-12-10 17:25:00"
-                    },
-                    {
-                        "description": "8,8 Zoll Radio",
-                        "amount": 274.45,
-                        "person": "Jakob W",
-                        "date": "2025-12-22 17:26:00"
+                        "date": "2025-12-10T17:25:00"
                     },
                     {
                         "description": "Destilliertes Wasser",
                         "amount": 3.49,
                         "person": "Jakob W",
-                        "date": "2026-03-05 22:39:36.148131"
+                        "date": "2026-03-05T22:39:36.148131"
                     }
                 ],
                 "times": [],
@@ -666,42 +774,257 @@
             {
                 "title": "Zylinderkopfdichtung",
                 "description": "",
+                "date": "2026-04-01T20:13:45.392813",
+                "isClosed": false,
+                "closedAt": null,
+                "costs": [
+                    {
+                        "description": "Schlauchschellen",
+                        "amount": 5.14,
+                        "person": "Jakob W",
+                        "date": "2026-04-25T19:53:45.894978"
+                    },
+                    {
+                        "description": "Zylinderkopf Planen und Überprüfen lassen",
+                        "amount": 250.0,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:10:57.419580"
+                    },
+                    {
+                        "description": "Reparatur Material",
+                        "amount": 465.41,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:12:34.488417"
+                    },
+                    {
+                        "description": "Riemenscheibe",
+                        "amount": 98.72,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:14:46.772287"
+                    },
+                    {
+                        "description": "Schleifflies und Schleifpaste",
+                        "amount": 31.04,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:15:31.548665"
+                    },
+                    {
+                        "description": "Öl Ablas Schrauben Dichtung",
+                        "amount": 0.28,
+                        "person": "Jakob W",
+                        "date": "2026-06-20T19:03:31.293126"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Zylinderkopfdichtung Ausbau",
+                        "hours": 4.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-25T08:11:58.276557"
+                    },
+                    {
+                        "description": "Zylinderkopfdichtung Ausbau",
+                        "hours": 4.0,
+                        "person": "Florian G",
+                        "date": "2026-04-25T08:12:05.072268"
+                    },
+                    {
+                        "description": "Zylinderkopfdichtung Ausbau",
+                        "hours": 3.2,
+                        "person": "Jakob W",
+                        "date": "2026-04-25T18:48:57.280790"
+                    },
+                    {
+                        "description": "Zylinderkopfdichtung Ausbau",
+                        "hours": 3.2,
+                        "person": "Florian G",
+                        "date": "2026-04-25T18:49:12.855897"
+                    },
+                    {
+                        "description": "Zylinderkopf Zusammenbau",
+                        "hours": 5.8,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:09:39.641054"
+                    },
+                    {
+                        "description": "Zylinderkopf ausernanderbau",
+                        "hours": 5.0,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T15:57:56.543211"
+                    }
+                ],
+                "incomes": []
+            },
+            {
+                "title": "Flüssigkeiten",
+                "description": "",
+                "date": "2026-04-01T20:13:45.393714",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [],
                 "times": [],
                 "incomes": []
             },
             {
-                "title": "Fl\u00fcssigkeiten",
+                "title": "Ästhetisch",
                 "description": "",
-                "costs": [],
-                "times": [],
-                "incomes": []
-            },
-            {
-                "title": "\u00c4sthetisch",
-                "description": "",
-                "costs": [],
-                "times": [],
+                "date": "2026-04-01T20:13:45.394089",
+                "isClosed": false,
+                "closedAt": null,
+                "costs": [
+                    {
+                        "description": "Nightride Lufterfrischer",
+                        "amount": 4.6,
+                        "person": "Jakob W",
+                        "date": "2026-04-13T16:12:42.281049"
+                    },
+                    {
+                        "description": "Dachhimmel Mikrofon Abdeckung",
+                        "amount": 15.8,
+                        "person": "Jakob W",
+                        "date": "2026-04-21T20:14:00"
+                    },
+                    {
+                        "description": "Sprühkleber",
+                        "amount": 16.9,
+                        "person": "Jakob W",
+                        "date": "2026-04-25T21:59:37.510559"
+                    },
+                    {
+                        "description": "Schwarz Textilfarbe",
+                        "amount": 13.06,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T19:40:13.799018"
+                    },
+                    {
+                        "description": "Schwarz Textilfarbe",
+                        "amount": 13.06,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T19:40:20.696221"
+                    },
+                    {
+                        "description": "Dasai Mochi 3",
+                        "amount": 63.03,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:21:07.465856"
+                    },
+                    {
+                        "description": "Mochi Stromkabel",
+                        "amount": 19.13,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:32:54.109881"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Schwarzer Dachhimmel",
+                        "hours": 4.5,
+                        "person": "Jakob W",
+                        "date": "2026-04-25T18:50:14.060339"
+                    },
+                    {
+                        "description": "Hutablage",
+                        "hours": 0.8,
+                        "person": "Jakob W",
+                        "date": "2026-04-29T15:48:13.697313"
+                    },
+                    {
+                        "description": "Schwarzer Dachhimmel",
+                        "hours": 2.5,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T16:27:42.879476"
+                    },
+                    {
+                        "description": "Schwarzer Dachhimmel",
+                        "hours": 1.0,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T16:27:51.436474"
+                    },
+                    {
+                        "description": "A Säulen einbauen",
+                        "hours": 0.8,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T19:29:09.488890"
+                    },
+                    {
+                        "description": "B Säulen",
+                        "hours": 1.0,
+                        "person": "Jakob W",
+                        "date": "2026-05-02T14:24:45.407292"
+                    },
+                    {
+                        "description": "Mikrofon Abdeckung einbauen",
+                        "hours": 0.5,
+                        "person": "Jakob W",
+                        "date": "2026-05-09T07:17:08.729193"
+                    }
+                ],
                 "incomes": []
             },
             {
                 "title": "Sound + Radio",
                 "description": "",
+                "date": "2026-04-07T20:40:27.419124",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [
                     {
                         "description": "Apple Carplay Radio 7\"",
                         "amount": 149.02,
                         "person": "Jakob W",
-                        "date": "2026-04-07 20:40:45.133772"
+                        "date": "2026-04-07T20:40:45.133772"
+                    },
+                    {
+                        "description": "Subwoofer Elektronik",
+                        "amount": 21.98,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T19:37:33.638625"
+                    },
+                    {
+                        "description": "8,8 Zoll Radio",
+                        "amount": 274.45,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T19:37:48.645905"
+                    },
+                    {
+                        "description": "Kabel",
+                        "amount": 66.5,
+                        "person": "Jakob W",
+                        "date": "2026-05-02T14:26:00"
+                    },
+                    {
+                        "description": "Selbstklebende EVA-Schaumstoffrolle",
+                        "amount": 10.98,
+                        "person": "Jakob W",
+                        "date": "2026-05-09T07:16:28.277323"
+                    },
+                    {
+                        "description": "Stecker",
+                        "amount": 21.17,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:15:55.817905"
                     }
                 ],
-                "times": [],
+                "times": [
+                    {
+                        "description": "Erster Überblick",
+                        "hours": 1.5,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T16:28:29.331284"
+                    },
+                    {
+                        "description": "Microphon",
+                        "hours": 0.8,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T19:29:31.587080"
+                    }
+                ],
                 "incomes": [
                     {
-                        "description": "Apple Carplay Radio 7\" zur\u00fcckgegeben",
+                        "description": "Apple Carplay Radio 7\" zurückgegeben",
                         "amount": 149.02,
                         "person": "Jakob W",
-                        "date": "2026-04-07 20:41:01.739640"
+                        "date": "2026-04-07T20:41:01.739640"
                     }
                 ]
             }
@@ -711,28 +1034,39 @@
         "brand": "MINI",
         "model": "Cooper F56",
         "vin": "WMWXM510702A28817",
+        "firstRegistration": null,
+        "engineOil": null,
+        "gearboxOil": null,
+        "diffOil": null,
+        "coolant": null,
+        "fuel": null,
+        "engineCode": null,
+        "licensePlate": null,
         "orders": [
             {
                 "title": "Fahrzeugkauf",
                 "description": "",
+                "date": "2026-04-01T20:13:45.395101",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:22:50.260698",
                 "costs": [
                     {
                         "description": "Fahrzeug Kauf",
                         "amount": 1100.0,
                         "person": "Jakob W",
-                        "date": "2026-03-14 16:53:12.142326"
+                        "date": "2026-03-14T16:53:12.142326"
                     },
                     {
                         "description": "Fahrzeug Kauf",
                         "amount": 1000.0,
                         "person": "Florian G",
-                        "date": "2026-03-14 16:53:23.658992"
+                        "date": "2026-03-14T16:53:23.658992"
                     },
                     {
                         "description": "Sprit",
                         "amount": 30.0,
                         "person": "Florian G",
-                        "date": "2026-03-14 16:54:15.295863"
+                        "date": "2026-03-14T16:54:15.295863"
                     }
                 ],
                 "times": [],
@@ -741,30 +1075,33 @@
             {
                 "title": "Reparatur",
                 "description": "",
+                "date": "2026-04-01T20:13:45.396265",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:22:56.560999",
                 "costs": [
                     {
                         "description": "KFZ Gutachten",
                         "amount": 1.9,
                         "person": "Jakob W",
-                        "date": "2026-03-14 16:53:53.163774"
+                        "date": "2026-03-14T16:53:53.163774"
                     },
                     {
                         "description": "Feile",
                         "amount": 5.99,
                         "person": "Jakob W",
-                        "date": "2026-03-14 16:54:40.761677"
+                        "date": "2026-03-14T16:54:40.761677"
                     },
                     {
                         "description": "Sprays",
                         "amount": 10.99,
                         "person": "Jakob W",
-                        "date": "2026-03-14 16:55:42.968697"
+                        "date": "2026-03-14T16:55:42.968697"
                     },
                     {
                         "description": "Federn, Bremsen, Reifen",
                         "amount": 400.0,
                         "person": "Florian G",
-                        "date": "2026-03-24 21:42:44.277759"
+                        "date": "2026-03-24T21:42:44.277759"
                     }
                 ],
                 "times": [],
@@ -773,18 +1110,21 @@
             {
                 "title": "Fahrzeugverkauf",
                 "description": "",
+                "date": "2026-04-01T20:13:45.397245",
+                "isClosed": false,
+                "closedAt": null,
                 "costs": [
                     {
                         "description": "Auszahlung Phill",
                         "amount": 250.0,
                         "person": "Jakob W",
-                        "date": "2026-03-14 16:55:01.481387"
+                        "date": "2026-03-14T16:55:01.481387"
                     },
                     {
                         "description": "Willhaben Inserat",
                         "amount": 79.99,
                         "person": "Jakob W",
-                        "date": "2026-03-23 19:08:32.790400"
+                        "date": "2026-03-23T19:08:32.790400"
                     }
                 ],
                 "times": [],
@@ -796,10 +1136,21 @@
         "brand": "Mazda",
         "model": "323F",
         "vin": "JMZBG14E200587889",
+        "firstRegistration": null,
+        "engineOil": null,
+        "gearboxOil": null,
+        "diffOil": null,
+        "coolant": null,
+        "fuel": null,
+        "engineCode": null,
+        "licensePlate": null,
         "orders": [
             {
                 "title": "Getriebe tausch",
                 "description": "",
+                "date": "2026-04-01T20:13:45.398756",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:21:14.370633",
                 "costs": [],
                 "times": [],
                 "incomes": [
@@ -807,19 +1158,22 @@
                         "description": "Stunden",
                         "amount": 400.0,
                         "person": "Jakob W",
-                        "date": "2026-03-14 22:55:39.619686"
+                        "date": "2026-03-14T22:55:39.619686"
                     }
                 ]
             },
             {
                 "title": "Folien",
                 "description": "",
+                "date": "2026-04-01T20:13:45.399268",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:21:05.693353",
                 "costs": [
                     {
                         "description": "Folien",
                         "amount": 15.02,
                         "person": "Jakob W",
-                        "date": "2026-03-14 23:19:23.697947"
+                        "date": "2026-03-14T23:19:23.697947"
                     }
                 ],
                 "times": [],
@@ -828,7 +1182,7 @@
                         "description": "Bezahlung",
                         "amount": 20.0,
                         "person": "Jakob W",
-                        "date": "2026-03-15 17:55:05.010818"
+                        "date": "2026-03-15T17:55:05.010818"
                     }
                 ]
             }
@@ -838,20 +1192,468 @@
         "brand": "Dacia",
         "model": "Sandero",
         "vin": "UU15SDAG352885323",
+        "firstRegistration": null,
+        "engineOil": null,
+        "gearboxOil": null,
+        "diffOil": null,
+        "coolant": null,
+        "fuel": null,
+        "engineCode": null,
+        "licensePlate": null,
         "orders": [
             {
-                "title": "Frontsto\u00dfstange austausch",
-                "description": "Vorl\u00e4ufig reparieren und austauschen wenn neue Stange da ist.",
+                "title": "Frontstoßstange austausch",
+                "description": "Vorläufig reparieren und austauschen wenn neue Stange da ist.",
+                "date": "2026-04-01T20:13:45.400496",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:19:15.594458",
                 "costs": [
                     {
-                        "description": "Frontsto\u00dfstange",
+                        "description": "Frontstoßstange",
                         "amount": 103.89,
                         "person": "Jakob W",
-                        "date": "2026-03-27 20:13:41.718243"
+                        "date": "2026-03-27T20:13:41.718243"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Stoßstange vorläufig reparieren",
+                        "hours": 0.5,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:44:06.674608"
+                    },
+                    {
+                        "description": "Stoßstange austauschen",
+                        "hours": 1.8,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:45:16.236109"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Bezahlung",
+                        "amount": 150.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:55:45.848843"
+                    },
+                    {
+                        "description": "Trinkgeld",
+                        "amount": 3.89,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:56:24.773089"
+                    }
+                ]
+            },
+            {
+                "title": "Reifen Umstecken",
+                "description": "",
+                "date": "2026-04-17T16:44:09.803919",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:19:10.754271",
+                "costs": [],
+                "times": [
+                    {
+                        "description": "Reifen Umstecken",
+                        "hours": 1.1,
+                        "person": "Jakob W",
+                        "date": "2026-04-18T07:56:47.756551"
+                    }
+                ],
+                "incomes": []
+            },
+            {
+                "title": "Lichtanlage instand setzten",
+                "description": "",
+                "date": "2026-04-19T08:44:33.205672",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:19:05.108485",
+                "costs": [],
+                "times": [],
+                "incomes": []
+            },
+            {
+                "title": "Service + Öl + Pickerl",
+                "description": "",
+                "date": "2026-05-01T16:23:01.713369",
+                "isClosed": false,
+                "closedAt": null,
+                "costs": [
+                    {
+                        "description": "Schweller",
+                        "amount": 113.15,
+                        "person": "Jakob W",
+                        "date": "2026-06-20T19:22:39.563906"
+                    },
+                    {
+                        "description": "H7",
+                        "amount": 6.19,
+                        "person": "Jakob W",
+                        "date": "2026-06-20T19:23:23.552478"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Ausbeulen",
+                        "hours": 1.0,
+                        "person": "Jakob W",
+                        "date": "2026-06-20T19:24:16.483094"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Anzahlung",
+                        "amount": 200.0,
+                        "person": "Jakob W",
+                        "date": "2026-06-14T13:23:07.288543"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "brand": " Equickey",
+        "model": "F6",
+        "vin": "254522509160065",
+        "firstRegistration": "",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "Electric",
+        "engineCode": "",
+        "licensePlate": "",
+        "orders": [
+            {
+                "title": "Reparatur",
+                "description": "",
+                "date": "2026-04-10T17:39:32.210334",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:16:17.090434",
+                "costs": [
+                    {
+                        "description": "Ersatzteile",
+                        "amount": 132.6,
+                        "person": "Jakob W",
+                        "date": "2026-04-13T16:10:41.099144"
+                    },
+                    {
+                        "description": "Folien",
+                        "amount": 5.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-20T20:35:33.656441"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Erstes anschauen + Kostenvoranschlag",
+                        "hours": 0.8,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:40:28.762056"
+                    },
+                    {
+                        "description": "Reparatur",
+                        "hours": 1.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-20T19:17:11.028618"
+                    },
+                    {
+                        "description": "Folien",
+                        "hours": 1.5,
+                        "person": "Jakob W",
+                        "date": "2026-04-20T20:39:13.805377"
+                    },
+                    {
+                        "description": "Reparatur ",
+                        "hours": 0.7,
+                        "person": "Jakob W",
+                        "date": "2026-04-22T06:00:52.543040"
+                    },
+                    {
+                        "description": "Kratzer ausbessern",
+                        "hours": 0.1,
+                        "person": "Jakob W",
+                        "date": "2026-04-22T06:01:17.860206"
+                    },
+                    {
+                        "description": "Folien",
+                        "hours": 0.5,
+                        "person": "Jakob W",
+                        "date": "2026-04-22T14:37:41.762472"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Bezahlung ",
+                        "amount": 250.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-24T12:41:12.667836"
+                    },
+                    {
+                        "description": "Trinkgeld ",
+                        "amount": 50.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-24T12:41:29.353105"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "brand": "RK",
+        "model": "Kart",
+        "vin": "-",
+        "firstRegistration": "",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "",
+        "engineCode": "",
+        "licensePlate": "",
+        "orders": [
+            {
+                "title": "Batterie + Warung",
+                "description": "",
+                "date": "2026-04-10T17:42:30.382188",
+                "isClosed": false,
+                "closedAt": null,
+                "costs": [
+                    {
+                        "description": "Kabel + Aderendhülse",
+                        "amount": 8.1,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:43:06.696674"
+                    },
+                    {
+                        "description": "Neue Batterie",
+                        "amount": 28.67,
+                        "person": "Jakob W",
+                        "date": "2026-04-17T21:10:04.997828"
+                    },
+                    {
+                        "description": "Batteriehauptschalter ",
+                        "amount": 10.07,
+                        "person": "Jakob W",
+                        "date": "2026-04-19T20:03:08.708457"
+                    },
+                    {
+                        "description": "Batteriehauptschalter",
+                        "amount": 9.56,
+                        "person": "Jakob W",
+                        "date": "2026-04-21T22:11:13.042504"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Erstes anschauen",
+                        "hours": 0.2,
+                        "person": "Jakob W",
+                        "date": "2026-04-10T17:43:24.488691"
+                    },
+                    {
+                        "description": "Andere Batterie testen",
+                        "hours": 0.2,
+                        "person": "Jakob W",
+                        "date": "2026-04-12T19:30:05.936070"
+                    },
+                    {
+                        "description": "Batteriehaltermontieren",
+                        "hours": 1.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-19T20:03:38.401261"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Batteriehauptschalter Rückgabe",
+                        "amount": 10.07,
+                        "person": "Jakob W",
+                        "date": "2026-04-21T22:10:59.418928"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "brand": "Honda",
+        "model": "CB 650 R",
+        "vin": "MLHRH16C0R5008006",
+        "firstRegistration": "28.03.2025",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "Gasolina",
+        "engineCode": "",
+        "licensePlate": "",
+        "orders": []
+    },
+    {
+        "brand": "Ghost Town",
+        "model": "Development Department",
+        "vin": " ",
+        "firstRegistration": "",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "",
+        "engineCode": "",
+        "licensePlate": "",
+        "orders": [
+            {
+                "title": "CAN to SPI",
+                "description": "",
+                "date": "2026-04-16T18:51:23.784068",
+                "isClosed": false,
+                "closedAt": null,
+                "costs": [
+                    {
+                        "description": "ESP32s",
+                        "amount": 22.16,
+                        "person": "Jakob W",
+                        "date": "2026-04-16T18:52:59.571181"
+                    },
+                    {
+                        "description": "DIspaly, CAN to SPI",
+                        "amount": 20.27,
+                        "person": "Jakob W",
+                        "date": "2026-04-16T18:53:31.822338"
+                    },
+                    {
+                        "description": " MCP23017",
+                        "amount": 11.96,
+                        "person": "Jakob W",
+                        "date": "2026-04-23T19:46:14.725362"
                     }
                 ],
                 "times": [],
                 "incomes": []
+            }
+        ]
+    },
+    {
+        "brand": "Volvo",
+        "model": "V50",
+        "vin": "YV1MW84E1C2695436",
+        "firstRegistration": "29.06.2012",
+        "engineOil": "",
+        "gearboxOil": "",
+        "diffOil": "",
+        "coolant": "",
+        "fuel": "",
+        "engineCode": "",
+        "licensePlate": "",
+        "orders": [
+            {
+                "title": "Reifen Umstecken",
+                "description": "",
+                "date": "2026-04-18T08:51:44.415893",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:17:26.405825",
+                "costs": [],
+                "times": [
+                    {
+                        "description": "Reifen Umstecken",
+                        "hours": 0.7,
+                        "person": "Jakob W",
+                        "date": "2026-04-18T08:51:52.187142"
+                    },
+                    {
+                        "description": "Radmutter wechseln",
+                        "hours": 0.2,
+                        "person": "Jakob W",
+                        "date": "2026-04-21T18:29:31.505840"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Bezahlung",
+                        "amount": 25.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-22T09:55:32.738107"
+                    }
+                ]
+            },
+            {
+                "title": "Heck Stabilisatorstange repariere",
+                "description": "Stabistangen schrauben hinten austauschen.",
+                "date": "2026-04-18T16:29:52.237229",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:17:33.560772",
+                "costs": [
+                    {
+                        "description": "Stabistangenschrauben",
+                        "amount": 37.44,
+                        "person": "Jakob W",
+                        "date": "2026-04-18T16:30:50.312395"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Reparatur",
+                        "hours": 0.8,
+                        "person": "Jakob W",
+                        "date": "2026-04-21T18:29:51.020144"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Bezahlung",
+                        "amount": 55.0,
+                        "person": "Jakob W",
+                        "date": "2026-04-22T09:55:52.980165"
+                    }
+                ]
+            },
+            {
+                "title": "Service",
+                "description": "Service + Öl",
+                "date": "2026-05-01T16:21:41.815404",
+                "isClosed": true,
+                "closedAt": "2026-06-20T23:17:38.306623",
+                "costs": [
+                    {
+                        "description": "Service Material",
+                        "amount": 118.03,
+                        "person": "Jakob W",
+                        "date": "2026-05-01T16:22:36.372428"
+                    },
+                    {
+                        "description": "Öl ablasschraiben Dichtung",
+                        "amount": 0.84,
+                        "person": "Jakob W",
+                        "date": "2026-05-09T10:41:58.816875"
+                    },
+                    {
+                        "description": "Reiniger",
+                        "amount": 2.72,
+                        "person": "Jakob W",
+                        "date": "2026-05-09T10:43:41.513056"
+                    },
+                    {
+                        "description": "Clips",
+                        "amount": 3.5,
+                        "person": "Jakob W",
+                        "date": "2026-05-15T08:37:52.550831"
+                    }
+                ],
+                "times": [
+                    {
+                        "description": "Arbeit",
+                        "hours": 1.7,
+                        "person": "Jakob W",
+                        "date": "2026-05-09T10:44:43.882687"
+                    }
+                ],
+                "incomes": [
+                    {
+                        "description": "Bezahlung",
+                        "amount": 160.0,
+                        "person": "Jakob W",
+                        "date": "2026-05-13T18:08:32.266477"
+                    }
+                ]
             }
         ]
     }

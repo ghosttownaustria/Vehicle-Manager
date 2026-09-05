@@ -21,6 +21,29 @@
     </div>
 </div>
 
+<h2 class="section-title">Benutzer</h2>
+<div class="grid">
+    <div class="field span-12">
+        <label>Benutzer am Fahrzeug</label>
+        {% if users %}
+            {% set selected_user_ids = vehicle.assignedUsers|map(attribute='id')|list if vehicle else [] %}
+            <div class="checkbox-list">
+                {% for user in users %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="user_ids" value="{{ user.id }}" {% if user.id in selected_user_ids %}checked{% endif %}>
+                        {{ user.displayName }}
+                        {% if user.email != user.displayName %}
+                            <span class="hint">{{ user.email }}</span>
+                        {% endif %}
+                    </label>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="hint">Noch keine Benutzer vorhanden.</p>
+        {% endif %}
+    </div>
+</div>
+
 <h2 class="section-title">Technische Daten</h2>
 <div class="grid">
     <div class="field span-4">

@@ -15,7 +15,7 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from pdfReports import buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 def loginRequired(function):
@@ -23,6 +23,10 @@ def loginRequired(function):
     def decoratedFunction(*args, **kwargs):
         if "userId" not in session:
             flash("Bitte zuerst anmelden.", "warning")
+            return redirect(url_for("login"))
+        if currentUser() is None:
+            session.clear()
+            flash("Bitte erneut anmelden.", "warning")
             return redirect(url_for("login"))
         return function(*args, **kwargs)
 
@@ -66,10 +70,33 @@ orderAttachedVehicle = db.Table(
 )
 
 
+vehicleAssignedUser = db.Table(
+    "vehicle_assigned_user",
+    db.Column(
+        "vehicle_id",
+        db.Integer,
+        db.ForeignKey("vehicle.id"),
+        primary_key=True,
+    ),
+    db.Column(
+        "user_id",
+        db.Integer,
+        db.ForeignKey("user.id"),
+        primary_key=True,
+    ),
+)
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
     email = db.Column(db.String(150), unique=True, nullable=False)
     passwordHash = db.Column(db.String(200), nullable=False)
+    isAdmin = db.Column(db.Boolean, nullable=False, default=False)
+
+    @property
+    def displayName(self):
+        return (self.name or "").strip() or self.email
 
 
 class Vehicle(db.Model):
@@ -94,6 +121,12 @@ class Vehicle(db.Model):
         backref="vehicle",
         lazy=True,
         cascade="all, delete-orphan",
+    )
+    assignedUsers = db.relationship(
+        "User",
+        secondary=vehicleAssignedUser,
+        lazy=True,
+        backref=db.backref("vehicles", lazy=True),
     )
 
     @property
@@ -211,10 +244,41 @@ def initializeDatabase():
                 'ALTER TABLE "cost" ADD COLUMN "saleAmount" FLOAT NOT NULL DEFAULT 0'
             )
 
+    if "user" in tableNames:
+        userColumns = {
+            column["name"] for column in inspector.get_columns("user")
+        }
+        if "name" not in userColumns:
+            migrations.append('ALTER TABLE "user" ADD COLUMN "name" VARCHAR(100)')
+        if "isAdmin" not in userColumns:
+            migrations.append(
+                'ALTER TABLE "user" '
+                'ADD COLUMN "isAdmin" BOOLEAN NOT NULL DEFAULT 0'
+            )
+
     if migrations:
         with db.engine.begin() as connection:
             for statement in migrations:
                 connection.execute(text(statement))
+
+    normalizeExistingUsers()
+
+
+def normalizeExistingUsers():
+    changed = False
+
+    for user in User.query.order_by(User.id).all():
+        if not (user.name or "").strip():
+            user.name = user.email
+            changed = True
+
+    if User.query.count() and not User.query.filter_by(isAdmin=True).first():
+        firstUser = User.query.order_by(User.id).first()
+        firstUser.isAdmin = True
+        changed = True
+
+    if changed:
+        db.session.commit()
 
 
 def parseFormDate(value):
@@ -234,6 +298,70 @@ def parseFormInteger(value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def currentUser():
+    userId = session.get("userId")
+    if not userId:
+        return None
+    return db.session.get(User, userId)
+
+
+def isCurrentUserAdmin():
+    user = currentUser()
+    return bool(user and user.isAdmin)
+
+
+def adminRedirect():
+    flash("Nur Admins können Benutzer verwalten.", "danger")
+    return redirect(url_for("users"))
+
+
+def sortedUsers(users):
+    return sorted(
+        users,
+        key=lambda user: (
+            (user.displayName or "").lower(),
+            (user.email or "").lower(),
+            user.id,
+        ),
+    )
+
+
+def allUsers():
+    return sortedUsers(User.query.all())
+
+
+def selectedUsersFromForm():
+    userIds = {
+        userId
+        for userId in (
+            parseFormInteger(value) for value in request.form.getlist("user_ids")
+        )
+        if userId is not None
+    }
+    if not userIds:
+        return []
+    return sortedUsers(User.query.filter(User.id.in_(userIds)).all())
+
+
+def selectableUsersForOrder(orderItem):
+    userMap = {}
+    relatedVehicles = [orderItem.vehicle, *orderItem.attachedVehicles]
+    for vehicleItem in relatedVehicles:
+        for user in vehicleItem.assignedUsers:
+            userMap[user.id] = user
+
+    users = sortedUsers(userMap.values())
+    return users or allUsers()
+
+
+def userOptionValues(users):
+    values = set()
+    for user in users:
+        values.add(user.displayName)
+        values.add(user.email)
+    return values
 
 
 def directOrderTotals(orderItem):
@@ -326,6 +454,17 @@ def dateTimeFilter(value):
     return value.strftime("%d.%m.%Y %H:%M") if value else "–"
 
 
+@app.template_filter("userList")
+def userListFilter(users):
+    names = [user.displayName for user in sortedUsers(users or [])]
+    return ", ".join(names) if names else "Keine Benutzer"
+
+
+@app.context_processor
+def injectCurrentUser():
+    return {"currentUser": currentUser()}
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -391,6 +530,73 @@ def orders():
     )
 
 
+@app.route("/users", methods=["GET", "POST"])
+@loginRequired
+def users():
+    if request.method == "POST":
+        if not isCurrentUserAdmin():
+            return adminRedirect()
+
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        passwordConfirm = request.form.get("passwordConfirm", "")
+
+        if not name or not email or not password:
+            flash("Name, E-Mail-Adresse und Passwort sind Pflichtfelder.", "danger")
+            return redirect(url_for("users"))
+        if password != passwordConfirm:
+            flash("Die Passwörter stimmen nicht überein.", "danger")
+            return redirect(url_for("users"))
+        if User.query.filter_by(email=email).first():
+            flash("Diese E-Mail-Adresse ist bereits vergeben.", "danger")
+            return redirect(url_for("users"))
+
+        db.session.add(
+            User(
+                name=name,
+                email=email,
+                passwordHash=generate_password_hash(password),
+                isAdmin=request.form.get("isAdmin") == "on",
+            )
+        )
+        db.session.commit()
+        flash("Benutzer wurde angelegt.", "success")
+        return redirect(url_for("users"))
+
+    userItems = allUsers()
+    return render_template("users.html", users=userItems)
+
+
+@app.route("/users/<int:userId>/edit", methods=["POST"])
+@loginRequired
+def editUser(userId):
+    if not isCurrentUserAdmin():
+        return adminRedirect()
+
+    user = User.query.get_or_404(userId)
+    name = request.form.get("name", "").strip()
+    isAdmin = request.form.get("isAdmin") == "on"
+
+    if not name:
+        flash("Der Name darf nicht leer sein.", "danger")
+        return redirect(url_for("users"))
+
+    if (
+        user.isAdmin
+        and not isAdmin
+        and User.query.filter_by(isAdmin=True).count() <= 1
+    ):
+        flash("Mindestens ein Admin muss erhalten bleiben.", "danger")
+        return redirect(url_for("users"))
+
+    user.name = name
+    user.isAdmin = isAdmin
+    db.session.commit()
+    flash("Benutzer wurde gespeichert.", "success")
+    return redirect(url_for("users"))
+
+
 @app.route("/add_vehicle", methods=["GET", "POST"])
 @loginRequired
 def addVehicle():
@@ -408,12 +614,13 @@ def addVehicle():
             engineCode=request.form.get("engineCode", "").strip(),
             licensePlate=request.form.get("licensePlate", "").strip(),
         )
+        newVehicle.assignedUsers = selectedUsersFromForm()
         db.session.add(newVehicle)
         db.session.commit()
         flash("Fahrzeug wurde angelegt.", "success")
         return redirect(url_for("vehicle", vehicleId=newVehicle.id))
 
-    return render_template("add_vehicle.html")
+    return render_template("add_vehicle.html", users=allUsers())
 
 
 @app.route("/vehicle/<int:vehicleId>")
@@ -484,11 +691,16 @@ def editVehicle(vehicleId):
         vehicleItem.fuel = request.form.get("fuel", "").strip()
         vehicleItem.engineCode = request.form.get("engineCode", "").strip()
         vehicleItem.licensePlate = request.form.get("licensePlate", "").strip()
+        vehicleItem.assignedUsers = selectedUsersFromForm()
         db.session.commit()
         flash("Fahrzeugdaten wurden gespeichert.", "success")
         return redirect(url_for("vehicle", vehicleId=vehicleItem.id))
 
-    return render_template("edit_vehicle.html", vehicle=vehicleItem)
+    return render_template(
+        "edit_vehicle.html",
+        vehicle=vehicleItem,
+        users=allUsers(),
+    )
 
 
 @app.route("/delete_vehicle/<int:vehicleId>", methods=["POST"])
@@ -622,6 +834,7 @@ def order(orderId):
     directCost = sum((item.amount or 0) for item in orderItem.costs)
     directIncome = sum((item.amount or 0) for item in orderItem.incomes)
     directHours = sum((item.hours or 0) for item in orderItem.times)
+    userOptions = selectableUsersForOrder(orderItem)
     attachedVehicleSummaries = [
         totalsSummary(attachedVehicle, ownVehicleTotals(attachedVehicle))
         for attachedVehicle in sorted(
@@ -669,6 +882,8 @@ def order(orderId):
         directHours=directHours,
         attachedVehicleSummaries=attachedVehicleSummaries,
         attachableVehicles=attachableVehicles,
+        userOptions=userOptions,
+        userOptionValues=userOptionValues(userOptions),
     )
 
 
@@ -744,7 +959,13 @@ def editCost(costId):
         flash("Ausgabe wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=cost.order.id))
 
-    return render_template("edit_cost.html", cost=cost)
+    userOptions = selectableUsersForOrder(cost.order)
+    return render_template(
+        "edit_cost.html",
+        cost=cost,
+        userOptions=userOptions,
+        userOptionValues=userOptionValues(userOptions),
+    )
 
 
 @app.route("/edit_time/<int:timeId>", methods=["GET", "POST"])
@@ -763,7 +984,13 @@ def editTime(timeId):
         flash("Arbeitszeit wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=workTime.order.id))
 
-    return render_template("edit_time.html", workTime=workTime)
+    userOptions = selectableUsersForOrder(workTime.order)
+    return render_template(
+        "edit_time.html",
+        workTime=workTime,
+        userOptions=userOptions,
+        userOptionValues=userOptionValues(userOptions),
+    )
 
 
 @app.route("/edit_income/<int:incomeId>", methods=["GET", "POST"])
@@ -782,7 +1009,13 @@ def editIncome(incomeId):
         flash("Einnahme wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=income.order.id))
 
-    return render_template("edit_income.html", income=income)
+    userOptions = selectableUsersForOrder(income.order)
+    return render_template(
+        "edit_income.html",
+        income=income,
+        userOptions=userOptions,
+        userOptionValues=userOptionValues(userOptions),
+    )
 
 
 @app.route("/delete_cost/<int:costId>", methods=["POST"])

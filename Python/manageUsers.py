@@ -21,7 +21,11 @@ def listUsers():
     print("------------------------------")
 
     for user in users:
-        print(f"ID: {user.id} | Email: {user.email}")
+        role = "Admin" if user.isAdmin else "User"
+        print(
+            f"ID: {user.id} | Name: {user.displayName} | "
+            f"Email: {user.email} | Role: {role}"
+        )
 
     print()
 
@@ -30,7 +34,12 @@ def createUser():
     print("\nCreate New User")
     print("----------------")
 
+    name = input("Name: ").strip()
     email = input("Email: ").strip()
+
+    if not email:
+        print("Email must not be empty!\n")
+        return
 
     if User.query.filter_by(email=email).first():
         print("User already exists!\n")
@@ -39,15 +48,22 @@ def createUser():
     password = getpass.getpass("Password: ")
     confirmPassword = getpass.getpass("Confirm Password: ")
 
+    if not password:
+        print("Password must not be empty!\n")
+        return
+
     if password != confirmPassword:
         print("Passwords do not match!\n")
         return
 
     hashedPassword = generate_password_hash(password)
+    isAdmin = input("Admin rights? (yes/no): ").strip().lower() == "yes"
 
     newUser = User(
+        name=name or email,
         email=email,
-        passwordHash=hashedPassword
+        passwordHash=hashedPassword,
+        isAdmin=isAdmin,
     )
 
     db.session.add(newUser)

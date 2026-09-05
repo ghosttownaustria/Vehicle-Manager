@@ -4,7 +4,7 @@
 <div class="page-header">
     <div>
         <h1>{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}</h1>
-        <p>{{ vehicle.licensePlate or 'Kein Kennzeichen' }} · FIN/VIN: {{ vehicle.vin or '–' }}</p>
+        <p>{{ vehicle.licensePlate or 'Kein Kennzeichen' }} · FIN/VIN: {{ vehicle.vin or '–' }} · Benutzer: {{ vehicle.assignedUsers|userList }}</p>
     </div>
     <div class="actions">
         <a class="btn btn-secondary" href="{{ url_for('printVehicle', vehicleId=vehicle.id) }}">PDF</a>
@@ -45,6 +45,7 @@
             <div class="detail"><span class="detail-label">Kühlmittel</span><span class="detail-value">{{ vehicle.coolant or '–' }}</span></div>
             <div class="detail"><span class="detail-label">Kraftstoff</span><span class="detail-value">{{ vehicle.fuel or '–' }}</span></div>
             <div class="detail"><span class="detail-label">Motorkennbuchstabe</span><span class="detail-value">{{ vehicle.engineCode or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Benutzer</span><span class="detail-value">{{ vehicle.assignedUsers|userList }}</span></div>
         </div>
     </section>
 

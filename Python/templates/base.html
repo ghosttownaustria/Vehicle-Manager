@@ -82,6 +82,11 @@
             background: rgba(255, 255, 255, .1);
             text-decoration: none;
         }
+        .nav-user {
+            color: #f2f4f7;
+            padding: 8px 11px;
+            font-weight: 700;
+        }
 
         .page {
             width: min(1180px, calc(100% - 32px));
@@ -193,6 +198,26 @@
         input:focus, textarea:focus, select:focus {
             outline: 3px solid rgba(21, 94, 239, .13);
             border-color: var(--primary);
+        }
+        .checkbox-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 9px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 42px;
+            border: 1px solid #d0d5dd;
+            border-radius: 9px;
+            padding: 9px 11px;
+            background: white;
+            font-weight: 650;
+        }
+        .checkbox-item input {
+            width: auto;
+            margin: 0;
         }
         .hint { color: var(--muted); font-size: .84rem; margin-top: 5px; }
 
@@ -335,6 +360,13 @@
                class="{{ 'active' if request.endpoint in ['orders', 'order', 'addOrder', 'editOrder', 'editCost', 'editTime', 'editIncome'] else '' }}">
                 Aufträge
             </a>
+            <a href="{{ url_for('users') }}"
+               class="{{ 'active' if request.endpoint in ['users'] else '' }}">
+                Benutzer
+            </a>
+            {% if currentUser %}
+                <span class="nav-user">{{ currentUser.displayName }}</span>
+            {% endif %}
             <a href="{{ url_for('logout') }}">Abmelden</a>
         </nav>
     </div>

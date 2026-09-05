@@ -64,20 +64,43 @@ def wait():
     input("\nEnter drücken, um zum Menü zurückzukehren...")
 
 
+def sortedUserEmails(users):
+    return sorted(email for email in (user.email for user in users) if email)
+
+
+def sortedUserNames(users):
+    return sorted(user.displayName for user in users if user.displayName)
+
+
+def vehicleUserSummary(vehicle):
+    return ", ".join(sortedUserNames(vehicle.assignedUsers)) or "keine Benutzer"
+
+
 def listUsers():
     print("\n=== BENUTZER ===")
-    for user in User.query.order_by(User.email).all():
-        print(f"{user.id} - {user.email}")
+    for user in User.query.order_by(User.name, User.email).all():
+        adminStatus = "Admin" if user.isAdmin else "User"
+        print(f"{user.id} - {user.displayName} ({user.email}) [{adminStatus}]")
 
 
 def addUser():
     print("\n=== BENUTZER ANLEGEN ===")
+    name = input("Name: ").strip()
     email = input("E-Mail: ").strip()
     password = input("Passwort: ")
+    if not email or not password:
+        print("E-Mail und Passwort duerfen nicht leer sein.")
+        return
+    if User.query.filter_by(email=email).first():
+        print("Diese E-Mail-Adresse ist bereits vergeben.")
+        return
+    isAdmin = input("Adminrechte? [j/N]: ").strip().lower() == "j"
     db.session.add(
         User(
+            name=name or email,
             email=email,
             passwordHash=generate_password_hash(password),
+            isAdmin=isAdmin,
         )
     )
     db.session.commit()
@@ -107,7 +130,8 @@ def listVehicles():
     for vehicle in Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all():
         print(
             f"{vehicle.id} - {vehicle.displayName} "
-            f"({vehicle.vin or 'keine FIN/VIN'})"
+            f"({vehicle.vin or 'keine FIN/VIN'}) | "
+            f"Benutzer: {vehicleUserSummary(vehicle)}"
         )
 
 
@@ -125,6 +149,7 @@ def listAllDetails():
     print("\n=== DATENBANKÜBERSICHT ===")
     for vehicle in Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all():
         print(f"\nFahrzeug {vehicle.id}: {vehicle.displayName}")
+        print(f"  Benutzer: {vehicleUserSummary(vehicle)}")
         for order in vehicle.orders:
             status = "geschlossen" if order.isClosed else "offen"
             print(f"  Auftrag {order.id}: {order.title} [{status}]")
@@ -182,6 +207,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
             "fuel": vehicle.fuel,
             "engineCode": vehicle.engineCode,
             "licensePlate": vehicle.licensePlate,
+            "assignedUserEmails": sortedUserEmails(vehicle.assignedUsers),
             "lastOpenedAt": (
                 vehicle.lastOpenedAt.isoformat()
                 if vehicle.lastOpenedAt
@@ -287,6 +313,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
 
         # Relationship assignment sets all foreign keys during the final flush.
         # Avoiding a flush for every single order keeps large old exports fast.
+        availableUsers = {user.email: user for user in User.query.all()}
         sourceVehicleMap = {}
         pendingOrderAttachments = []
         with db.session.no_autoflush:
@@ -312,6 +339,16 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                         vehicleData.get("lastOpenedAt")
                     ),
                 )
+                assignedUserEmails = vehicleData.get(
+                    "assignedUserEmails",
+                    vehicleData.get("assignedUsers", []),
+                )
+                if isinstance(assignedUserEmails, list):
+                    vehicle.assignedUsers = [
+                        availableUsers[email]
+                        for email in assignedUserEmails
+                        if isinstance(email, str) and email in availableUsers
+                    ]
                 db.session.add(vehicle)
                 for sourceVehicleKey in {
                     vehicleData.get("exportId"),

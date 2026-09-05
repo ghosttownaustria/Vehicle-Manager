@@ -140,10 +140,11 @@
                 <label>VK (€)</label>
                 <input type="number" step="0.01" min="0" name="saleAmount" value="0" required>
             </div>
-            <div class="field">
-                <label>Bezahlt von</label>
-                <input type="text" name="person" required>
-            </div>
+            {% set personFieldId = 'cost_person' %}
+            {% set personLabel = 'Bezahlt von' %}
+            {% set selectedPerson = '' %}
+            {% set personFieldClass = 'field' %}
+            {% include "_person_select.html" %}
             <div class="field">
                 <label>Datum und Uhrzeit</label>
                 <input type="datetime-local" name="date">
@@ -163,10 +164,11 @@
                 <label>Stunden</label>
                 <input type="number" step="0.1" min="0" name="hours" required>
             </div>
-            <div class="field">
-                <label>Ausgeführt von</label>
-                <input type="text" name="person" required>
-            </div>
+            {% set personFieldId = 'time_person' %}
+            {% set personLabel = 'Ausgeführt von' %}
+            {% set selectedPerson = '' %}
+            {% set personFieldClass = 'field' %}
+            {% include "_person_select.html" %}
             <div class="field">
                 <label>Datum und Uhrzeit</label>
                 <input type="datetime-local" name="date">
@@ -186,10 +188,11 @@
                 <label>Betrag (€)</label>
                 <input type="number" step="0.01" min="0" name="amount" required>
             </div>
-            <div class="field">
-                <label>Erhalten von</label>
-                <input type="text" name="person" required>
-            </div>
+            {% set personFieldId = 'income_person' %}
+            {% set personLabel = 'Erhalten von' %}
+            {% set selectedPerson = '' %}
+            {% set personFieldClass = 'field' %}
+            {% include "_person_select.html" %}
             <div class="field">
                 <label>Datum und Uhrzeit</label>
                 <input type="datetime-local" name="date">

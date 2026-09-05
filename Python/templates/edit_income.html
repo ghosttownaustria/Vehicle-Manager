@@ -18,10 +18,11 @@
                 <label for="amount">Betrag (€)</label>
                 <input id="amount" type="number" step="0.01" min="0" name="amount" value="{{ income.amount }}" required>
             </div>
-            <div class="field span-6">
-                <label for="person">Erhalten von</label>
-                <input id="person" type="text" name="person" value="{{ income.person }}" required>
-            </div>
+            {% set personFieldId = 'person' %}
+            {% set personLabel = 'Erhalten von' %}
+            {% set selectedPerson = income.person %}
+            {% set personFieldClass = 'field span-6' %}
+            {% include "_person_select.html" %}
         </div>
         <div class="field">
             <label for="date">Datum und Uhrzeit</label>

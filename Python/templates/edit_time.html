@@ -18,10 +18,11 @@
                 <label for="hours">Stunden</label>
                 <input id="hours" type="number" step="0.1" min="0" name="hours" value="{{ workTime.hours }}" required>
             </div>
-            <div class="field span-6">
-                <label for="person">Ausgeführt von</label>
-                <input id="person" type="text" name="person" value="{{ workTime.person }}" required>
-            </div>
+            {% set personFieldId = 'person' %}
+            {% set personLabel = 'Ausgeführt von' %}
+            {% set selectedPerson = workTime.person %}
+            {% set personFieldClass = 'field span-6' %}
+            {% include "_person_select.html" %}
         </div>
         <div class="field">
             <label for="date">Datum und Uhrzeit</label>

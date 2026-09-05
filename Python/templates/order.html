@@ -16,8 +16,10 @@
         </p>
     </div>
     <div class="actions">
-        <a class="btn btn-secondary" href="{{ url_for('printOrder', orderId=order.id) }}">PDF</a>
-        {% if not order.isClosed %}
+        {% if currentUser.canModifyVehicles %}
+            <a class="btn btn-secondary" href="{{ url_for('printOrder', orderId=order.id) }}">PDF</a>
+        {% endif %}
+        {% if currentUser.canModifyVehicles and not order.isClosed %}
             <a class="btn btn-secondary" href="{{ url_for('editOrder', orderId=order.id) }}">Bearbeiten</a>
             <form method="post" action="{{ url_for('closeOrder', orderId=order.id) }}"
                   onsubmit="return confirm('Auftrag wirklich abschließen? Danach kann er nicht mehr bearbeitet werden.')">
@@ -66,7 +68,7 @@
                             · Arbeitszeit {{ summary.totalHours|currency }} h
                         </div>
                     </div>
-                    {% if not order.isClosed %}
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}
                         <form method="post" action="{{ url_for('detachVehicleFromOrder', orderId=order.id, vehicleId=attachedVehicle.id) }}"
                               onsubmit="return confirm('Fahrzeug von diesem Auftrag lösen?')">
                             <button class="btn btn-secondary btn-sm" type="submit">Lösen</button>
@@ -79,7 +81,7 @@
         <div class="empty">Noch keine Fahrzeuge an diesen Auftrag angehängt.</div>
     {% endif %}
 
-    {% if not order.isClosed %}
+    {% if currentUser.canModifyVehicles and not order.isClosed %}
         {% if attachableVehicles %}
             <form method="post" class="grid" style="margin-top: 16px">
                 <div class="field span-8">
@@ -123,7 +125,7 @@
     </div>
 </div>
 
-{% if not order.isClosed %}
+{% if currentUser.canModifyVehicles and not order.isClosed %}
 <div class="grid">
     <section class="card span-4">
         <h2>Ausgabe hinzufügen</h2>
@@ -144,6 +146,8 @@
             {% set personLabel = 'Bezahlt von' %}
             {% set selectedPerson = '' %}
             {% set personFieldClass = 'field' %}
+            {% set userOptions = personUserOptions %}
+            {% set userOptionValues = personUserOptionValues %}
             {% include "_person_select.html" %}
             <div class="field">
                 <label>Datum und Uhrzeit</label>
@@ -168,6 +172,8 @@
             {% set personLabel = 'Ausgeführt von' %}
             {% set selectedPerson = '' %}
             {% set personFieldClass = 'field' %}
+            {% set userOptions = workTimeUserOptions %}
+            {% set userOptionValues = workTimeUserOptionValues %}
             {% include "_person_select.html" %}
             <div class="field">
                 <label>Datum und Uhrzeit</label>
@@ -192,6 +198,8 @@
             {% set personLabel = 'Erhalten von' %}
             {% set selectedPerson = '' %}
             {% set personFieldClass = 'field' %}
+            {% set userOptions = personUserOptions %}
+            {% set userOptionValues = personUserOptionValues %}
             {% include "_person_select.html" %}
             <div class="field">
                 <label>Datum und Uhrzeit</label>
@@ -208,7 +216,7 @@
     {% if costs %}
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">EK</th><th class="number">VK</th>{% if not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">EK</th><th class="number">VK</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for cost in costs %}
                 <tr>
@@ -217,7 +225,7 @@
                     <td>{{ cost.person }}</td>
                     <td class="number">{{ cost.amount|currency }} €</td>
                     <td class="number">{{ cost.saleAmount|currency }} €</td>
-                    {% if not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editCost', costId=cost.id) }}">Bearbeiten</a></td>{% endif %}
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editCost', costId=cost.id) }}">Bearbeiten</a></td>{% endif %}
                 </tr>
             {% endfor %}
             </tbody>
@@ -231,7 +239,7 @@
     {% if times %}
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Stunden</th>{% if not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Stunden</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for time in times %}
                 <tr>
@@ -239,7 +247,7 @@
                     <td>{{ time.description }}</td>
                     <td>{{ time.person }}</td>
                     <td class="number">{{ time.hours|currency }} h</td>
-                    {% if not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editTime', timeId=time.id) }}">Bearbeiten</a></td>{% endif %}
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editTime', timeId=time.id) }}">Bearbeiten</a></td>{% endif %}
                 </tr>
             {% endfor %}
             </tbody>
@@ -253,7 +261,7 @@
     {% if incomes %}
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Betrag</th>{% if not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Betrag</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for income in incomes %}
                 <tr>
@@ -261,7 +269,7 @@
                     <td>{{ income.description }}</td>
                     <td>{{ income.person }}</td>
                     <td class="number">{{ income.amount|currency }} €</td>
-                    {% if not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editIncome', incomeId=income.id) }}">Bearbeiten</a></td>{% endif %}
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editIncome', incomeId=income.id) }}">Bearbeiten</a></td>{% endif %}
                 </tr>
             {% endfor %}
             </tbody>

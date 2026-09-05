@@ -10,12 +10,15 @@ from app import (
     Cost,
     Income,
     Order,
+    ROLE_ADMIN,
+    ROLE_OPTIONS,
     User,
     Vehicle,
     WorkTime,
     app,
     db,
     initializeDatabase,
+    parseRole,
 )
 
 
@@ -79,8 +82,15 @@ def vehicleUserSummary(vehicle):
 def listUsers():
     print("\n=== BENUTZER ===")
     for user in User.query.order_by(User.name, User.email).all():
-        adminStatus = "Admin" if user.isAdmin else "User"
-        print(f"{user.id} - {user.displayName} ({user.email}) [{adminStatus}]")
+        print(f"{user.id} - {user.displayName} ({user.email}) [{user.roleLabel}]")
+
+
+def chooseRole(defaultRole="customer"):
+    print("Rollen:")
+    for value, label in ROLE_OPTIONS:
+        marker = " *" if value == defaultRole else ""
+        print(f"  {value} - {label}{marker}")
+    return parseRole(input(f"Rolle [{defaultRole}]: ").strip() or defaultRole)
 
 
 def addUser():
@@ -94,13 +104,14 @@ def addUser():
     if User.query.filter_by(email=email).first():
         print("Diese E-Mail-Adresse ist bereits vergeben.")
         return
-    isAdmin = input("Adminrechte? [j/N]: ").strip().lower() == "j"
+    role = chooseRole()
     db.session.add(
         User(
             name=name or email,
             email=email,
             passwordHash=generate_password_hash(password),
-            isAdmin=isAdmin,
+            isAdmin=role == ROLE_ADMIN,
+            role=role,
         )
     )
     db.session.commit()

@@ -1,26 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Benutzer - Vehicle Manager{% endblock %}
 {% block content %}
-{% set is_admin = currentUser and currentUser.isAdmin %}
 <div class="page-header">
     <div>
         <h1>Benutzer</h1>
-        <p>Login-User und ihre Fahrzeug-Zuordnungen.</p>
+        <p>Benutzer, Rollen und Fahrzeug-Zuordnungen.</p>
     </div>
 </div>
 
 <div class="grid" style="margin-bottom: 22px">
-    <div class="stat span-4">
+    <div class="stat span-3">
         <div class="stat-label">Benutzer</div>
         <div class="stat-value">{{ users|length }}</div>
     </div>
-    <div class="stat span-4">
+    <div class="stat span-3">
+        <div class="stat-label">Kunden</div>
+        <div class="stat-value">{{ users|selectattr('role', 'equalto', 'customer')|list|length }}</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Techniker</div>
+        <div class="stat-value">{{ users|selectattr('role', 'equalto', 'technician')|list|length }}</div>
+    </div>
+    <div class="stat span-3">
         <div class="stat-label">Admins</div>
-        <div class="stat-value">{{ users|selectattr('isAdmin')|list|length }}</div>
+        <div class="stat-value">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
     </div>
 </div>
 
-{% if is_admin %}
 <section class="card" style="margin-bottom: 22px">
     <div class="card-header">
         <h2>Benutzer anlegen</h2>
@@ -43,19 +49,18 @@
             <input id="passwordConfirm" type="password" name="passwordConfirm" required>
         </div>
         <div class="field span-4">
-            <label class="checkbox-item" style="margin-top: 29px">
-                <input type="checkbox" name="isAdmin">
-                Admin
-            </label>
+            <label for="role">Rolle</label>
+            <select id="role" name="role" required>
+                {% for value, label in roleOptions %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="actions span-12">
             <button class="btn btn-primary" type="submit">Benutzer anlegen</button>
         </div>
     </form>
 </section>
-{% else %}
-<div class="alert alert-info">Nur Admins können neue Benutzer anlegen.</div>
-{% endif %}
 
 <div class="card">
     <div class="card-header">
@@ -64,71 +69,64 @@
     {% if users %}
         <div class="list">
             {% for user in users %}
-                {% if is_admin %}
-                    <form method="post" action="{{ url_for('editUser', userId=user.id) }}" class="list-item">
-                        <div style="flex: 1">
-                            <div class="list-title">
-                                {{ user.displayName }}
-                                {% if user.isAdmin %}
-                                    <span class="badge badge-open" style="margin-left: 8px">Admin</span>
-                                {% endif %}
+                <div class="list-item">
+                    <div style="flex: 1">
+                        <div class="list-title">
+                            {{ user.displayName }}
+                            <span class="badge badge-open" style="margin-left: 8px">{{ user.roleLabel }}</span>
+                        </div>
+                        <div class="list-meta">{{ user.email }}</div>
+
+                        <form id="edit_user_{{ user.id }}" method="post" action="{{ url_for('editUser', userId=user.id) }}" class="grid" style="margin-top: 12px">
+                            <div class="field span-4">
+                                <label for="name_{{ user.id }}">Name</label>
+                                <input id="name_{{ user.id }}" type="text" name="name" value="{{ user.name or user.email }}" required>
                             </div>
-                            <div class="list-meta">{{ user.email }}</div>
-                            <div class="grid" style="margin-top: 12px">
-                                <div class="field span-8">
-                                    <label for="name_{{ user.id }}">Name</label>
-                                    <input id="name_{{ user.id }}" type="text" name="name" value="{{ user.name or user.email }}" required>
-                                </div>
-                                <div class="field span-4">
-                                    <label class="checkbox-item" style="margin-top: 29px">
-                                        <input type="checkbox" name="isAdmin" {% if user.isAdmin %}checked{% endif %}>
-                                        Admin
-                                    </label>
-                                </div>
+                            <div class="field span-4">
+                                <label for="email_{{ user.id }}">E-Mail-Adresse</label>
+                                <input id="email_{{ user.id }}" type="email" name="email" value="{{ user.email }}" required>
                             </div>
-                            <div class="list-meta">
-                                {% if user.vehicles %}
-                                    Fahrzeuge:
-                                    {% for vehicle in user.vehicles %}
-                                        <a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
-                                            {{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}
-                                        </a>{% if not loop.last %}, {% endif %}
+                            <div class="field span-4">
+                                <label for="role_{{ user.id }}">Rolle</label>
+                                <select id="role_{{ user.id }}" name="role" required>
+                                    {% for value, label in roleOptions %}
+                                        <option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
-                                {% else %}
-                                    Noch keinem Fahrzeug zugeordnet.
-                                {% endif %}
+                                </select>
                             </div>
-                        </div>
-                        <div class="actions">
-                            <button class="btn btn-secondary btn-sm" type="submit">Speichern</button>
-                        </div>
-                    </form>
-                {% else %}
-                    <div class="list-item">
-                        <div>
-                            <div class="list-title">
-                                {{ user.displayName }}
-                                {% if user.isAdmin %}
-                                    <span class="badge badge-open" style="margin-left: 8px">Admin</span>
-                                {% endif %}
+                            <div class="field span-6">
+                                <label for="password_{{ user.id }}">Neues Passwort</label>
+                                <input id="password_{{ user.id }}" type="password" name="password">
                             </div>
-                            <div class="list-meta">
-                                {{ user.email }}
-                                {% if user.vehicles %}
-                                    · Fahrzeuge:
-                                    {% for vehicle in user.vehicles %}
-                                        <a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
-                                            {{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}
-                                        </a>{% if not loop.last %}, {% endif %}
-                                    {% endfor %}
-                                {% else %}
-                                    · Noch keinem Fahrzeug zugeordnet.
-                                {% endif %}
+                            <div class="field span-6">
+                                <label for="passwordConfirm_{{ user.id }}">Neues Passwort wiederholen</label>
+                                <input id="passwordConfirm_{{ user.id }}" type="password" name="passwordConfirm">
                             </div>
+                        </form>
+
+                        <div class="list-meta">
+                            {% if user.vehicles %}
+                                Fahrzeuge:
+                                {% for vehicle in user.vehicles %}
+                                    <a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
+                                        {{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                                    </a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                Noch keinem Fahrzeug zugeordnet.
+                            {% endif %}
                         </div>
-                        <span class="badge badge-closed">{{ user.vehicles|length }} Fahrzeuge</span>
                     </div>
-                {% endif %}
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-sm" type="submit" form="edit_user_{{ user.id }}">Speichern</button>
+                        {% if currentUser.id != user.id %}
+                            <form method="post" action="{{ url_for('deleteUser', userId=user.id) }}"
+                                  onsubmit="return confirm('Benutzer wirklich löschen?')">
+                                <button class="btn btn-danger btn-sm" type="submit">Löschen</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
             {% endfor %}
         </div>
     {% else %}

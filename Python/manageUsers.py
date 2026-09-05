@@ -1,4 +1,4 @@
-from app import app, db, User
+from app import ROLE_ADMIN, ROLE_OPTIONS, User, app, db, parseRole
 from werkzeug.security import generate_password_hash
 import getpass
 import sys
@@ -21,10 +21,9 @@ def listUsers():
     print("------------------------------")
 
     for user in users:
-        role = "Admin" if user.isAdmin else "User"
         print(
             f"ID: {user.id} | Name: {user.displayName} | "
-            f"Email: {user.email} | Role: {role}"
+            f"Email: {user.email} | Role: {user.roleLabel}"
         )
 
     print()
@@ -57,13 +56,17 @@ def createUser():
         return
 
     hashedPassword = generate_password_hash(password)
-    isAdmin = input("Admin rights? (yes/no): ").strip().lower() == "yes"
+    print("Roles:")
+    for value, label in ROLE_OPTIONS:
+        print(f"  {value} - {label}")
+    role = parseRole(input("Role [customer]: ").strip() or "customer")
 
     newUser = User(
         name=name or email,
         email=email,
         passwordHash=hashedPassword,
-        isAdmin=isAdmin,
+        isAdmin=role == ROLE_ADMIN,
+        role=role,
     )
 
     db.session.add(newUser)

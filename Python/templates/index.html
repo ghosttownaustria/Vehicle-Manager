@@ -6,9 +6,11 @@
         <h1>Fahrzeuge</h1>
         <p>Alle Fahrzeuge und ihre aktuellen Aufträge auf einen Blick.</p>
     </div>
-    <div class="actions">
-        <a class="btn btn-primary" href="{{ url_for('addVehicle') }}">Fahrzeug hinzufügen</a>
-    </div>
+    {% if currentUser.canModifyVehicles %}
+        <div class="actions">
+            <a class="btn btn-primary" href="{{ url_for('addVehicle') }}">Fahrzeug hinzufügen</a>
+        </div>
+    {% endif %}
 </div>
 
 <div class="grid" style="margin-bottom: 22px">
@@ -51,8 +53,12 @@
         </div>
     {% else %}
         <div class="empty">
-            Noch keine Fahrzeuge vorhanden.<br>
-            Lege das erste Fahrzeug über „Fahrzeug hinzufügen“ an.
+            {% if currentUser.canModifyVehicles %}
+                Noch keine Fahrzeuge vorhanden.<br>
+                Lege das erste Fahrzeug über „Fahrzeug hinzufügen“ an.
+            {% else %}
+                Dir sind noch keine Fahrzeuge zugeordnet.
+            {% endif %}
         </div>
     {% endif %}
 </div>

@@ -53,6 +53,21 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db = SQLAlchemy(app)
 
 
+ROLE_CUSTOMER = "customer"
+ROLE_TECHNICIAN = "technician"
+ROLE_ADMIN = "admin"
+ROLE_LABELS = {
+    ROLE_CUSTOMER: "Kunde",
+    ROLE_TECHNICIAN: "Techniker",
+    ROLE_ADMIN: "Admin",
+}
+ROLE_OPTIONS = [
+    (ROLE_CUSTOMER, ROLE_LABELS[ROLE_CUSTOMER]),
+    (ROLE_TECHNICIAN, ROLE_LABELS[ROLE_TECHNICIAN]),
+    (ROLE_ADMIN, ROLE_LABELS[ROLE_ADMIN]),
+]
+
+
 orderAttachedVehicle = db.Table(
     "order_attached_vehicle",
     db.Column(
@@ -93,10 +108,27 @@ class User(db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     passwordHash = db.Column(db.String(200), nullable=False)
     isAdmin = db.Column(db.Boolean, nullable=False, default=False)
+    role = db.Column(db.String(20), nullable=False, default=ROLE_CUSTOMER)
 
     @property
     def displayName(self):
         return (self.name or "").strip() or self.email
+
+    @property
+    def roleLabel(self):
+        return ROLE_LABELS.get(self.role, ROLE_LABELS[ROLE_CUSTOMER])
+
+    @property
+    def canAccessAllVehicles(self):
+        return self.role in {ROLE_TECHNICIAN, ROLE_ADMIN}
+
+    @property
+    def canModifyVehicles(self):
+        return self.role in {ROLE_TECHNICIAN, ROLE_ADMIN}
+
+    @property
+    def canManageUsers(self):
+        return self.role == ROLE_ADMIN
 
 
 class Vehicle(db.Model):
@@ -207,6 +239,7 @@ def initializeDatabase():
     inspector = inspect(db.engine)
     tableNames = set(inspector.get_table_names())
     migrations = []
+    roleColumnWasMissing = False
 
     if "vehicle" in tableNames:
         vehicleColumns = {
@@ -255,25 +288,39 @@ def initializeDatabase():
                 'ALTER TABLE "user" '
                 'ADD COLUMN "isAdmin" BOOLEAN NOT NULL DEFAULT 0'
             )
+        if "role" not in userColumns:
+            roleColumnWasMissing = True
+            migrations.append(
+                'ALTER TABLE "user" '
+                "ADD COLUMN \"role\" VARCHAR(20) NOT NULL DEFAULT 'customer'"
+            )
 
     if migrations:
         with db.engine.begin() as connection:
             for statement in migrations:
                 connection.execute(text(statement))
 
-    normalizeExistingUsers()
+    normalizeExistingUsers(roleColumnWasMissing)
 
 
-def normalizeExistingUsers():
+def normalizeExistingUsers(roleColumnWasMissing=False):
     changed = False
 
     for user in User.query.order_by(User.id).all():
         if not (user.name or "").strip():
             user.name = user.email
             changed = True
+        if user.role not in ROLE_LABELS or roleColumnWasMissing:
+            user.role = ROLE_ADMIN if user.isAdmin else ROLE_TECHNICIAN
+            changed = True
+        shouldBeAdmin = user.role == ROLE_ADMIN
+        if bool(user.isAdmin) != shouldBeAdmin:
+            user.isAdmin = shouldBeAdmin
+            changed = True
 
-    if User.query.count() and not User.query.filter_by(isAdmin=True).first():
+    if User.query.count() and not User.query.filter_by(role=ROLE_ADMIN).first():
         firstUser = User.query.order_by(User.id).first()
+        firstUser.role = ROLE_ADMIN
         firstUser.isAdmin = True
         changed = True
 
@@ -300,6 +347,10 @@ def parseFormInteger(value):
         return None
 
 
+def parseRole(value, fallback=ROLE_CUSTOMER):
+    return value if value in ROLE_LABELS else fallback
+
+
 def currentUser():
     userId = session.get("userId")
     if not userId:
@@ -309,12 +360,123 @@ def currentUser():
 
 def isCurrentUserAdmin():
     user = currentUser()
-    return bool(user and user.isAdmin)
+    return bool(user and user.canManageUsers)
 
 
 def adminRedirect():
     flash("Nur Admins können Benutzer verwalten.", "danger")
-    return redirect(url_for("users"))
+    return redirect(url_for("index"))
+
+
+def accessDeniedRedirect():
+    flash("Dafür hast du keine Berechtigung.", "danger")
+    return redirect(url_for("index"))
+
+
+def canAccessVehicle(vehicleItem):
+    user = currentUser()
+    if not user:
+        return False
+    if user.canAccessAllVehicles:
+        return True
+    return any(
+        assignedUser.id == user.id for assignedUser in vehicleItem.assignedUsers
+    )
+
+
+def canAccessOrder(orderItem):
+    return canAccessVehicle(orderItem.vehicle)
+
+
+def canModifyVehicleData():
+    user = currentUser()
+    return bool(user and user.canModifyVehicles)
+
+
+def visibleAttachedVehicles(orderItem):
+    return [
+        vehicleItem
+        for vehicleItem in orderItem.attachedVehicles
+        if canAccessVehicle(vehicleItem)
+    ]
+
+
+def orderTotalsForCurrentUser(orderItem):
+    totals = directOrderTotals(orderItem)
+    for attachedVehicle in visibleAttachedVehicles(orderItem):
+        totals = addTotals(totals, ownVehicleTotals(attachedVehicle))
+    return totals
+
+
+def vehicleTotalsForCurrentUser(vehicleItem):
+    user = currentUser()
+    if user and user.canAccessAllVehicles:
+        return vehicleTotals(vehicleItem)
+
+    totalCost, totalIncome, totalHours, _ = ownVehicleTotals(vehicleItem)
+    attachedVehicleIds = set()
+
+    for orderItem in vehicleItem.orders:
+        for attachedVehicle in visibleAttachedVehicles(orderItem):
+            if attachedVehicle.id in attachedVehicleIds:
+                continue
+            attachedVehicleIds.add(attachedVehicle.id)
+            (
+                attachedCost,
+                attachedIncome,
+                attachedHours,
+                _,
+            ) = ownVehicleTotals(attachedVehicle)
+            totalCost += attachedCost
+            totalIncome += attachedIncome
+            totalHours += attachedHours
+
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def vehicleSortKey(vehicleItem):
+    openedAt = vehicleItem.lastOpenedAt or datetime.min
+    return (
+        openedAt,
+        (vehicleItem.brand or "").lower(),
+        (vehicleItem.model or "").lower(),
+        vehicleItem.id,
+    )
+
+
+def visibleVehicles():
+    user = currentUser()
+    if not user:
+        return []
+    if user.canAccessAllVehicles:
+        return Vehicle.query.order_by(
+            Vehicle.lastOpenedAt.desc().nullslast(),
+            Vehicle.brand,
+            Vehicle.model,
+            Vehicle.id,
+        ).all()
+    return sorted(user.vehicles, key=vehicleSortKey, reverse=True)
+
+
+def visibleVehicleIds():
+    user = currentUser()
+    if not user:
+        return []
+    if user.canAccessAllVehicles:
+        return None
+    return [vehicleItem.id for vehicleItem in user.vehicles]
+
+
+def visibleOrdersQuery(showClosed=None):
+    query = Order.query
+    if showClosed is not None:
+        query = query.filter_by(isClosed=showClosed)
+
+    vehicleIds = visibleVehicleIds()
+    if vehicleIds is not None:
+        query = query.filter(Order.vehicle_id.in_(vehicleIds))
+
+    return query
 
 
 def sortedUsers(users):
@@ -330,6 +492,12 @@ def sortedUsers(users):
 
 def allUsers():
     return sortedUsers(User.query.all())
+
+
+def staffUsers():
+    return sortedUsers(
+        User.query.filter(User.role.in_([ROLE_TECHNICIAN, ROLE_ADMIN])).all()
+    )
 
 
 def selectedUsersFromForm():
@@ -462,7 +630,10 @@ def userListFilter(users):
 
 @app.context_processor
 def injectCurrentUser():
-    return {"currentUser": currentUser()}
+    return {
+        "currentUser": currentUser(),
+        "roleOptions": ROLE_OPTIONS,
+    }
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -492,14 +663,9 @@ def logout():
 @app.route("/")
 @loginRequired
 def index():
-    vehicles = Vehicle.query.order_by(
-        Vehicle.lastOpenedAt.desc().nullslast(),
-        Vehicle.brand,
-        Vehicle.model,
-        Vehicle.id,
-    ).all()
-    openOrderCount = Order.query.filter_by(isClosed=False).count()
-    closedOrderCount = Order.query.filter_by(isClosed=True).count()
+    vehicles = visibleVehicles()
+    openOrderCount = visibleOrdersQuery(False).count()
+    closedOrderCount = visibleOrdersQuery(True).count()
     return render_template(
         "index.html",
         vehicles=vehicles,
@@ -513,7 +679,7 @@ def index():
 def orders():
     showClosed = request.args.get("status") == "closed"
     orderItems = (
-        Order.query.filter_by(isClosed=showClosed)
+        visibleOrdersQuery(showClosed)
         .order_by(
             Order.lastOpenedAt.desc().nullslast(),
             Order.date.desc(),
@@ -525,22 +691,23 @@ def orders():
         "orders.html",
         orders=orderItems,
         showClosed=showClosed,
-        openCount=Order.query.filter_by(isClosed=False).count(),
-        closedCount=Order.query.filter_by(isClosed=True).count(),
+        openCount=visibleOrdersQuery(False).count(),
+        closedCount=visibleOrdersQuery(True).count(),
     )
 
 
 @app.route("/users", methods=["GET", "POST"])
 @loginRequired
 def users():
-    if request.method == "POST":
-        if not isCurrentUserAdmin():
-            return adminRedirect()
+    if not isCurrentUserAdmin():
+        return adminRedirect()
 
+    if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
         passwordConfirm = request.form.get("passwordConfirm", "")
+        role = parseRole(request.form.get("role"))
 
         if not name or not email or not password:
             flash("Name, E-Mail-Adresse und Passwort sind Pflichtfelder.", "danger")
@@ -557,7 +724,8 @@ def users():
                 name=name,
                 email=email,
                 passwordHash=generate_password_hash(password),
-                isAdmin=request.form.get("isAdmin") == "on",
+                isAdmin=role == ROLE_ADMIN,
+                role=role,
             )
         )
         db.session.commit()
@@ -576,30 +744,83 @@ def editUser(userId):
 
     user = User.query.get_or_404(userId)
     name = request.form.get("name", "").strip()
-    isAdmin = request.form.get("isAdmin") == "on"
+    email = request.form.get("email", "").strip()
+    password = request.form.get("password", "")
+    passwordConfirm = request.form.get("passwordConfirm", "")
+    role = parseRole(request.form.get("role"), user.role)
 
-    if not name:
-        flash("Der Name darf nicht leer sein.", "danger")
+    if not name or not email:
+        flash("Name und E-Mail-Adresse sind Pflichtfelder.", "danger")
+        return redirect(url_for("users"))
+
+    existingUser = User.query.filter_by(email=email).first()
+    if existingUser and existingUser.id != user.id:
+        flash("Diese E-Mail-Adresse ist bereits vergeben.", "danger")
+        return redirect(url_for("users"))
+
+    if password or passwordConfirm:
+        if password != passwordConfirm:
+            flash("Die Passwörter stimmen nicht überein.", "danger")
+            return redirect(url_for("users"))
+        if not password:
+            flash("Das Passwort darf nicht leer sein.", "danger")
+            return redirect(url_for("users"))
+
+    if user.id == session.get("userId") and role != ROLE_ADMIN:
+        flash("Du kannst dir nicht selbst die Admin-Rolle entziehen.", "danger")
         return redirect(url_for("users"))
 
     if (
-        user.isAdmin
-        and not isAdmin
-        and User.query.filter_by(isAdmin=True).count() <= 1
+        user.role == ROLE_ADMIN
+        and role != ROLE_ADMIN
+        and User.query.filter_by(role=ROLE_ADMIN).count() <= 1
     ):
         flash("Mindestens ein Admin muss erhalten bleiben.", "danger")
         return redirect(url_for("users"))
 
     user.name = name
-    user.isAdmin = isAdmin
+    user.email = email
+    user.role = role
+    user.isAdmin = role == ROLE_ADMIN
+    if password:
+        user.passwordHash = generate_password_hash(password)
     db.session.commit()
     flash("Benutzer wurde gespeichert.", "success")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:userId>/delete", methods=["POST"])
+@loginRequired
+def deleteUser(userId):
+    if not isCurrentUserAdmin():
+        return adminRedirect()
+
+    user = User.query.get_or_404(userId)
+
+    if user.id == session.get("userId"):
+        flash("Du kannst deinen eigenen Benutzer nicht löschen.", "danger")
+        return redirect(url_for("users"))
+
+    if (
+        user.role == ROLE_ADMIN
+        and User.query.filter_by(role=ROLE_ADMIN).count() <= 1
+    ):
+        flash("Mindestens ein Admin muss erhalten bleiben.", "danger")
+        return redirect(url_for("users"))
+
+    user.vehicles.clear()
+    db.session.delete(user)
+    db.session.commit()
+    flash("Benutzer wurde gelöscht.", "success")
     return redirect(url_for("users"))
 
 
 @app.route("/add_vehicle", methods=["GET", "POST"])
 @loginRequired
 def addVehicle():
+    if not canModifyVehicleData():
+        return accessDeniedRedirect()
+
     if request.method == "POST":
         newVehicle = Vehicle(
             brand=request.form.get("brand", "").strip(),
@@ -627,6 +848,9 @@ def addVehicle():
 @loginRequired
 def vehicle(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+
     vehicleItem.lastOpenedAt = datetime.now()
     db.session.commit()
 
@@ -649,7 +873,7 @@ def vehicle(vehicleId):
         reverse=True,
     )
     attachedOrders = sorted(
-        vehicleItem.attachedToOrders,
+        (item for item in vehicleItem.attachedToOrders if canAccessOrder(item)),
         key=lambda item: (
             item.lastOpenedAt or datetime.min,
             item.date or datetime.min,
@@ -657,7 +881,9 @@ def vehicle(vehicleId):
         ),
         reverse=True,
     )
-    totalCost, totalIncome, totalHours, result = vehicleTotals(vehicleItem)
+    totalCost, totalIncome, totalHours, result = vehicleTotalsForCurrentUser(
+        vehicleItem
+    )
 
     return render_template(
         "vehicle.html",
@@ -676,6 +902,8 @@ def vehicle(vehicleId):
 @loginRequired
 def editVehicle(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
 
     if request.method == "POST":
         vehicleItem.brand = request.form.get("brand", "").strip()
@@ -707,6 +935,8 @@ def editVehicle(vehicleId):
 @loginRequired
 def deleteVehicle(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
 
     if any(orderItem.isClosed for orderItem in vehicleItem.orders):
         flash(
@@ -734,6 +964,8 @@ def deleteVehicle(vehicleId):
 @loginRequired
 def addOrder(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
 
     if request.method == "POST":
         newOrder = Order(
@@ -754,8 +986,12 @@ def addOrder(vehicleId):
 @loginRequired
 def order(orderId):
     orderItem = Order.query.get_or_404(orderId)
+    if not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
 
     if request.method == "POST":
+        if not canModifyVehicleData():
+            return accessDeniedRedirect()
         if orderItem.isClosed:
             return closedOrderRedirect(orderItem)
 
@@ -807,6 +1043,8 @@ def order(orderId):
             if not attachedVehicle:
                 flash("Fahrzeug zum Anhaengen wurde nicht gefunden.", "danger")
                 return redirect(url_for("order", orderId=orderItem.id))
+            if not canAccessVehicle(attachedVehicle):
+                return accessDeniedRedirect()
             if attachedVehicle.id == orderItem.vehicle_id:
                 flash(
                     "Das Hauptfahrzeug ist bereits mit diesem Auftrag verbunden.",
@@ -830,15 +1068,18 @@ def order(orderId):
     orderItem.lastOpenedAt = datetime.now()
     db.session.commit()
 
-    totalCost, totalIncome, totalHours, result = orderTotals(orderItem)
+    totalCost, totalIncome, totalHours, result = orderTotalsForCurrentUser(
+        orderItem
+    )
     directCost = sum((item.amount or 0) for item in orderItem.costs)
     directIncome = sum((item.amount or 0) for item in orderItem.incomes)
     directHours = sum((item.hours or 0) for item in orderItem.times)
-    userOptions = selectableUsersForOrder(orderItem)
+    personUserOptions = selectableUsersForOrder(orderItem)
+    workTimeUserOptions = staffUsers()
     attachedVehicleSummaries = [
         totalsSummary(attachedVehicle, ownVehicleTotals(attachedVehicle))
         for attachedVehicle in sorted(
-            orderItem.attachedVehicles,
+            visibleAttachedVehicles(orderItem),
             key=lambda item: (item.brand or "", item.model or "", item.id),
         )
     ]
@@ -847,11 +1088,7 @@ def order(orderId):
     }
     attachableVehicles = [
         vehicleItem
-        for vehicleItem in Vehicle.query.order_by(
-            Vehicle.brand,
-            Vehicle.model,
-            Vehicle.id,
-        ).all()
+        for vehicleItem in visibleVehicles()
         if vehicleItem.id != orderItem.vehicle_id
         and vehicleItem.id not in attachedVehicleIds
     ]
@@ -882,8 +1119,10 @@ def order(orderId):
         directHours=directHours,
         attachedVehicleSummaries=attachedVehicleSummaries,
         attachableVehicles=attachableVehicles,
-        userOptions=userOptions,
-        userOptionValues=userOptionValues(userOptions),
+        personUserOptions=personUserOptions,
+        personUserOptionValues=userOptionValues(personUserOptions),
+        workTimeUserOptions=workTimeUserOptions,
+        workTimeUserOptionValues=userOptionValues(workTimeUserOptions),
     )
 
 
@@ -891,6 +1130,8 @@ def order(orderId):
 @loginRequired
 def editOrder(orderId):
     orderItem = Order.query.get_or_404(orderId)
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
     if orderItem.isClosed:
         return closedOrderRedirect(orderItem)
 
@@ -909,6 +1150,8 @@ def editOrder(orderId):
 @loginRequired
 def closeOrder(orderId):
     orderItem = Order.query.get_or_404(orderId)
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
 
     if orderItem.isClosed:
         flash("Der Auftrag ist bereits abgeschlossen.", "info")
@@ -928,10 +1171,14 @@ def closeOrder(orderId):
 @loginRequired
 def detachVehicleFromOrder(orderId, vehicleId):
     orderItem = Order.query.get_or_404(orderId)
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
     if orderItem.isClosed:
         return closedOrderRedirect(orderItem)
 
     attachedVehicle = Vehicle.query.get_or_404(vehicleId)
+    if not canAccessVehicle(attachedVehicle):
+        return accessDeniedRedirect()
     if attachedVehicle in orderItem.attachedVehicles:
         orderItem.attachedVehicles.remove(attachedVehicle)
         db.session.commit()
@@ -946,6 +1193,8 @@ def detachVehicleFromOrder(orderId, vehicleId):
 @loginRequired
 def editCost(costId):
     cost = Cost.query.get_or_404(costId)
+    if not canModifyVehicleData() or not canAccessOrder(cost.order):
+        return accessDeniedRedirect()
     if cost.order.isClosed:
         return closedOrderRedirect(cost.order)
 
@@ -972,6 +1221,8 @@ def editCost(costId):
 @loginRequired
 def editTime(timeId):
     workTime = WorkTime.query.get_or_404(timeId)
+    if not canModifyVehicleData() or not canAccessOrder(workTime.order):
+        return accessDeniedRedirect()
     if workTime.order.isClosed:
         return closedOrderRedirect(workTime.order)
 
@@ -984,7 +1235,7 @@ def editTime(timeId):
         flash("Arbeitszeit wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=workTime.order.id))
 
-    userOptions = selectableUsersForOrder(workTime.order)
+    userOptions = staffUsers()
     return render_template(
         "edit_time.html",
         workTime=workTime,
@@ -997,6 +1248,8 @@ def editTime(timeId):
 @loginRequired
 def editIncome(incomeId):
     income = Income.query.get_or_404(incomeId)
+    if not canModifyVehicleData() or not canAccessOrder(income.order):
+        return accessDeniedRedirect()
     if income.order.isClosed:
         return closedOrderRedirect(income.order)
 
@@ -1023,6 +1276,8 @@ def editIncome(incomeId):
 def deleteCost(costId):
     cost = Cost.query.get_or_404(costId)
     orderItem = cost.order
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
     if orderItem.isClosed:
         return closedOrderRedirect(orderItem)
 
@@ -1037,6 +1292,8 @@ def deleteCost(costId):
 def deleteTime(timeId):
     workTime = WorkTime.query.get_or_404(timeId)
     orderItem = workTime.order
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
     if orderItem.isClosed:
         return closedOrderRedirect(orderItem)
 
@@ -1051,6 +1308,8 @@ def deleteTime(timeId):
 def deleteIncome(incomeId):
     income = Income.query.get_or_404(incomeId)
     orderItem = income.order
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
     if orderItem.isClosed:
         return closedOrderRedirect(orderItem)
 
@@ -1064,6 +1323,8 @@ def deleteIncome(incomeId):
 @loginRequired
 def printOrder(orderId):
     orderItem = Order.query.get_or_404(orderId)
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
     buffer = buildOrderPdf(orderItem, orderTotals(orderItem))
     return send_file(
         buffer,
@@ -1077,6 +1338,8 @@ def printOrder(orderId):
 @loginRequired
 def printVehicle(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
     buffer = buildVehiclePdf(vehicleItem, vehicleTotals(vehicleItem))
     return send_file(
         buffer,

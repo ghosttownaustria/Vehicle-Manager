@@ -360,12 +360,14 @@
                class="{{ 'active' if request.endpoint in ['orders', 'order', 'addOrder', 'editOrder', 'editCost', 'editTime', 'editIncome'] else '' }}">
                 Aufträge
             </a>
-            <a href="{{ url_for('users') }}"
-               class="{{ 'active' if request.endpoint in ['users'] else '' }}">
-                Benutzer
-            </a>
+            {% if currentUser and currentUser.canManageUsers %}
+                <a href="{{ url_for('users') }}"
+                   class="{{ 'active' if request.endpoint in ['users', 'editUser'] else '' }}">
+                    Benutzer
+                </a>
+            {% endif %}
             {% if currentUser %}
-                <span class="nav-user">{{ currentUser.displayName }}</span>
+                <span class="nav-user">{{ currentUser.displayName }} · {{ currentUser.roleLabel }}</span>
             {% endif %}
             <a href="{{ url_for('logout') }}">Abmelden</a>
         </nav>

@@ -41,13 +41,76 @@
     </div>
 {% endif %}
 
+<section class="card" style="margin-bottom: 22px">
+    <div class="card-header">
+        <h2>Angehängte Fahrzeuge</h2>
+        <strong>{{ attachedVehicleSummaries|length }}</strong>
+    </div>
+
+    {% if attachedVehicleSummaries %}
+        <div class="list">
+            {% for summary in attachedVehicleSummaries %}
+                {% set attachedVehicle = summary.item %}
+                <div class="list-item">
+                    <div>
+                        <div class="list-title">
+                            <a href="{{ url_for('vehicle', vehicleId=attachedVehicle.id) }}">
+                                {{ attachedVehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                            </a>
+                        </div>
+                        <div class="list-meta">
+                            {{ attachedVehicle.licensePlate or 'Kein Kennzeichen' }}
+                            · FIN/VIN: {{ attachedVehicle.vin or '–' }}
+                            · EK {{ summary.totalCost|currency }} €
+                            · Einnahmen {{ summary.totalIncome|currency }} €
+                            · Arbeitszeit {{ summary.totalHours|currency }} h
+                        </div>
+                    </div>
+                    {% if not order.isClosed %}
+                        <form method="post" action="{{ url_for('detachVehicleFromOrder', orderId=order.id, vehicleId=attachedVehicle.id) }}"
+                              onsubmit="return confirm('Fahrzeug von diesem Auftrag lösen?')">
+                            <button class="btn btn-secondary btn-sm" type="submit">Lösen</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty">Noch keine Fahrzeuge an diesen Auftrag angehängt.</div>
+    {% endif %}
+
+    {% if not order.isClosed %}
+        {% if attachableVehicles %}
+            <form method="post" class="grid" style="margin-top: 16px">
+                <div class="field span-8">
+                    <label for="attached_vehicle_id">Fahrzeug anhängen</label>
+                    <select id="attached_vehicle_id" name="attached_vehicle_id" required>
+                        {% for vehicle in attachableVehicles %}
+                            <option value="{{ vehicle.id }}">
+                                {{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                                · {{ vehicle.licensePlate or 'Kein Kennzeichen' }}
+                                · FIN/VIN: {{ vehicle.vin or '–' }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field span-4" style="align-self: end">
+                    <button class="btn btn-primary" type="submit" name="attach_vehicle_submit">Anhängen</button>
+                </div>
+            </form>
+        {% else %}
+            <p class="hint">Keine weiteren Fahrzeuge zum Anhängen verfügbar.</p>
+        {% endif %}
+    {% endif %}
+</section>
+
 <div class="grid" style="margin-bottom: 22px">
     <div class="stat span-3">
         <div class="stat-label">Einnahmen</div>
         <div class="stat-value">{{ totalIncome|currency }} €</div>
     </div>
     <div class="stat span-3">
-        <div class="stat-label">Ausgaben</div>
+        <div class="stat-label">EK</div>
         <div class="stat-value">{{ totalCost|currency }} €</div>
     </div>
     <div class="stat span-3">
@@ -70,8 +133,12 @@
                 <input type="text" name="description" required>
             </div>
             <div class="field">
-                <label>Betrag (€)</label>
+                <label>EK (€)</label>
                 <input type="number" step="0.01" min="0" name="amount" required>
+            </div>
+            <div class="field">
+                <label>VK (€)</label>
+                <input type="number" step="0.01" min="0" name="saleAmount" value="0" required>
             </div>
             <div class="field">
                 <label>Bezahlt von</label>
@@ -134,11 +201,11 @@
 {% endif %}
 
 <section class="card" style="margin-top: 22px">
-    <div class="card-header"><h2>Ausgaben</h2><strong>{{ totalCost|currency }} €</strong></div>
+    <div class="card-header"><h2>Ausgaben</h2><strong>EK {{ directCost|currency }} €</strong></div>
     {% if costs %}
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Betrag</th>{% if not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">EK</th><th class="number">VK</th>{% if not order.isClosed %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for cost in costs %}
                 <tr>
@@ -146,6 +213,7 @@
                     <td>{{ cost.description }}</td>
                     <td>{{ cost.person }}</td>
                     <td class="number">{{ cost.amount|currency }} €</td>
+                    <td class="number">{{ cost.saleAmount|currency }} €</td>
                     {% if not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editCost', costId=cost.id) }}">Bearbeiten</a></td>{% endif %}
                 </tr>
             {% endfor %}
@@ -156,7 +224,7 @@
 </section>
 
 <section class="card">
-    <div class="card-header"><h2>Arbeitszeiten</h2><strong>{{ totalHours|currency }} h</strong></div>
+    <div class="card-header"><h2>Arbeitszeiten</h2><strong>{{ directHours|currency }} h</strong></div>
     {% if times %}
     <div class="table-wrap">
         <table>
@@ -178,7 +246,7 @@
 </section>
 
 <section class="card">
-    <div class="card-header"><h2>Einnahmen</h2><strong>{{ totalIncome|currency }} €</strong></div>
+    <div class="card-header"><h2>Einnahmen</h2><strong>{{ directIncome|currency }} €</strong></div>
     {% if incomes %}
     <div class="table-wrap">
         <table>

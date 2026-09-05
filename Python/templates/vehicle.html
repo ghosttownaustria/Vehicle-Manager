@@ -19,7 +19,7 @@
         <div class="stat-value">{{ totalIncome|currency }} €</div>
     </div>
     <div class="stat span-3">
-        <div class="stat-label">Ausgaben</div>
+        <div class="stat-label">EK</div>
         <div class="stat-value">{{ totalCost|currency }} €</div>
     </div>
     <div class="stat span-3">
@@ -87,4 +87,29 @@
         {% endif %}
     </section>
 </div>
+
+{% if attachedOrders %}
+<section class="card" style="margin-top: 18px">
+    <div class="card-header">
+        <h2>Als Spender angehängt</h2>
+    </div>
+    <div class="list">
+        {% for order in attachedOrders %}
+            <a class="list-item" href="{{ url_for('order', orderId=order.id) }}">
+                <div>
+                    <div class="list-title">{{ order.title }}</div>
+                    <div class="list-meta">
+                        Für {{ order.vehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                        · angelegt {{ order.date|dateTime }}
+                        {% if order.isClosed %}· abgeschlossen {{ order.closedAt|dateTime }}{% endif %}
+                    </div>
+                </div>
+                <span class="badge {{ 'badge-closed' if order.isClosed else 'badge-open' }}">
+                    {{ 'Geschlossen' if order.isClosed else 'Offen' }}
+                </span>
+            </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
 {% endblock %}

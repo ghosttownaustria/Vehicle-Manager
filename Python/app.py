@@ -49,6 +49,23 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db = SQLAlchemy(app)
 
 
+orderAttachedVehicle = db.Table(
+    "order_attached_vehicle",
+    db.Column(
+        "order_id",
+        db.Integer,
+        db.ForeignKey("order.id"),
+        primary_key=True,
+    ),
+    db.Column(
+        "vehicle_id",
+        db.Integer,
+        db.ForeignKey("vehicle.id"),
+        primary_key=True,
+    ),
+)
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
@@ -70,6 +87,7 @@ class Vehicle(db.Model):
     fuel = db.Column(db.String(50))
     engineCode = db.Column(db.String(50))
     licensePlate = db.Column(db.String(20))
+    lastOpenedAt = db.Column(db.DateTime, nullable=True)
 
     orders = db.relationship(
         "Order",
@@ -91,6 +109,7 @@ class Order(db.Model):
     date = db.Column(db.DateTime, default=datetime.now)
     isClosed = db.Column(db.Boolean, nullable=False, default=False)
     closedAt = db.Column(db.DateTime, nullable=True)
+    lastOpenedAt = db.Column(db.DateTime, nullable=True)
 
     vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
 
@@ -112,12 +131,19 @@ class Order(db.Model):
         lazy=True,
         cascade="all, delete-orphan",
     )
+    attachedVehicles = db.relationship(
+        "Vehicle",
+        secondary=orderAttachedVehicle,
+        lazy=True,
+        backref=db.backref("attachedToOrders", lazy=True),
+    )
 
 
 class Cost(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(200))
     amount = db.Column(db.Float)
+    saleAmount = db.Column(db.Float, nullable=False, default=0)
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
@@ -146,21 +172,44 @@ def initializeDatabase():
     db.create_all()
 
     inspector = inspect(db.engine)
-    if "order" not in inspector.get_table_names():
-        return
-
-    columns = {column["name"] for column in inspector.get_columns("order")}
+    tableNames = set(inspector.get_table_names())
     migrations = []
 
-    if "isClosed" not in columns:
-        migrations.append(
-            'ALTER TABLE "order" '
-            'ADD COLUMN "isClosed" BOOLEAN NOT NULL DEFAULT 0'
-        )
-    if "closedAt" not in columns:
-        migrations.append(
-            'ALTER TABLE "order" ADD COLUMN "closedAt" DATETIME'
-        )
+    if "vehicle" in tableNames:
+        vehicleColumns = {
+            column["name"] for column in inspector.get_columns("vehicle")
+        }
+        if "lastOpenedAt" not in vehicleColumns:
+            migrations.append(
+                'ALTER TABLE "vehicle" ADD COLUMN "lastOpenedAt" DATETIME'
+            )
+
+    if "order" in tableNames:
+        orderColumns = {
+            column["name"] for column in inspector.get_columns("order")
+        }
+        if "isClosed" not in orderColumns:
+            migrations.append(
+                'ALTER TABLE "order" '
+                'ADD COLUMN "isClosed" BOOLEAN NOT NULL DEFAULT 0'
+            )
+        if "closedAt" not in orderColumns:
+            migrations.append(
+                'ALTER TABLE "order" ADD COLUMN "closedAt" DATETIME'
+            )
+        if "lastOpenedAt" not in orderColumns:
+            migrations.append(
+                'ALTER TABLE "order" ADD COLUMN "lastOpenedAt" DATETIME'
+            )
+
+    if "cost" in tableNames:
+        costColumns = {
+            column["name"] for column in inspector.get_columns("cost")
+        }
+        if "saleAmount" not in costColumns:
+            migrations.append(
+                'ALTER TABLE "cost" ADD COLUMN "saleAmount" FLOAT NOT NULL DEFAULT 0'
+            )
 
     if migrations:
         with db.engine.begin() as connection:
@@ -174,14 +223,33 @@ def parseFormDate(value):
     return datetime.fromisoformat(value)
 
 
-def orderTotals(orderItem):
+def parseFormAmount(value):
+    if value is None or str(value).strip() == "":
+        return 0
+    return float(str(value).replace(",", "."))
+
+
+def parseFormInteger(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def directOrderTotals(orderItem):
     totalCost = sum((item.amount or 0) for item in orderItem.costs)
     totalIncome = sum((item.amount or 0) for item in orderItem.incomes)
     totalHours = sum((item.hours or 0) for item in orderItem.times)
     return totalCost, totalIncome, totalHours, totalIncome - totalCost
 
 
-def vehicleTotals(vehicleItem):
+def addTotals(firstTotals, secondTotals):
+    return tuple(
+        first + second for first, second in zip(firstTotals, secondTotals)
+    )
+
+
+def ownVehicleTotals(vehicleItem):
     totalCost = sum(
         (cost.amount or 0)
         for orderItem in vehicleItem.orders
@@ -198,6 +266,46 @@ def vehicleTotals(vehicleItem):
         for workTime in orderItem.times
     )
     return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def orderTotals(orderItem):
+    totals = directOrderTotals(orderItem)
+    for attachedVehicle in orderItem.attachedVehicles:
+        totals = addTotals(totals, ownVehicleTotals(attachedVehicle))
+    return totals
+
+
+def vehicleTotals(vehicleItem):
+    totalCost, totalIncome, totalHours, _ = ownVehicleTotals(vehicleItem)
+    attachedVehicleIds = set()
+
+    for orderItem in vehicleItem.orders:
+        for attachedVehicle in orderItem.attachedVehicles:
+            if attachedVehicle.id in attachedVehicleIds:
+                continue
+            attachedVehicleIds.add(attachedVehicle.id)
+            (
+                attachedCost,
+                attachedIncome,
+                attachedHours,
+                _,
+            ) = ownVehicleTotals(attachedVehicle)
+            totalCost += attachedCost
+            totalIncome += attachedIncome
+            totalHours += attachedHours
+
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def totalsSummary(item, totals):
+    totalCost, totalIncome, totalHours, result = totals
+    return {
+        "item": item,
+        "totalCost": totalCost,
+        "totalIncome": totalIncome,
+        "totalHours": totalHours,
+        "result": result,
+    }
 
 
 def closedOrderRedirect(orderItem):
@@ -245,7 +353,12 @@ def logout():
 @app.route("/")
 @loginRequired
 def index():
-    vehicles = Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all()
+    vehicles = Vehicle.query.order_by(
+        Vehicle.lastOpenedAt.desc().nullslast(),
+        Vehicle.brand,
+        Vehicle.model,
+        Vehicle.id,
+    ).all()
     openOrderCount = Order.query.filter_by(isClosed=False).count()
     closedOrderCount = Order.query.filter_by(isClosed=True).count()
     return render_template(
@@ -262,7 +375,11 @@ def orders():
     showClosed = request.args.get("status") == "closed"
     orderItems = (
         Order.query.filter_by(isClosed=showClosed)
-        .order_by(Order.date.desc(), Order.id.desc())
+        .order_by(
+            Order.lastOpenedAt.desc().nullslast(),
+            Order.date.desc(),
+            Order.id.desc(),
+        )
         .all()
     )
     return render_template(
@@ -303,14 +420,34 @@ def addVehicle():
 @loginRequired
 def vehicle(vehicleId):
     vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    vehicleItem.lastOpenedAt = datetime.now()
+    db.session.commit()
+
     openOrders = sorted(
         (item for item in vehicleItem.orders if not item.isClosed),
-        key=lambda item: item.date or datetime.min,
+        key=lambda item: (
+            item.lastOpenedAt or datetime.min,
+            item.date or datetime.min,
+            item.id,
+        ),
         reverse=True,
     )
     closedOrders = sorted(
         (item for item in vehicleItem.orders if item.isClosed),
-        key=lambda item: item.closedAt or item.date or datetime.min,
+        key=lambda item: (
+            item.lastOpenedAt or datetime.min,
+            item.closedAt or item.date or datetime.min,
+            item.id,
+        ),
+        reverse=True,
+    )
+    attachedOrders = sorted(
+        vehicleItem.attachedToOrders,
+        key=lambda item: (
+            item.lastOpenedAt or datetime.min,
+            item.date or datetime.min,
+            item.id,
+        ),
         reverse=True,
     )
     totalCost, totalIncome, totalHours, result = vehicleTotals(vehicleItem)
@@ -320,6 +457,7 @@ def vehicle(vehicleId):
         vehicle=vehicleItem,
         openOrders=openOrders,
         closedOrders=closedOrders,
+        attachedOrders=attachedOrders,
         totalCost=totalCost,
         totalHours=totalHours,
         totalIncome=totalIncome,
@@ -366,6 +504,14 @@ def deleteVehicle(vehicleId):
         )
         return redirect(url_for("editVehicle", vehicleId=vehicleItem.id))
 
+    if any(orderItem.isClosed for orderItem in vehicleItem.attachedToOrders):
+        flash(
+            "Das Fahrzeug ist an abgeschlossene Auftraege angehaengt und "
+            "kann deshalb nicht geloescht werden.",
+            "danger",
+        )
+        return redirect(url_for("editVehicle", vehicleId=vehicleItem.id))
+
     db.session.delete(vehicleItem)
     db.session.commit()
     flash("Fahrzeug wurde gelöscht.", "success")
@@ -401,17 +547,16 @@ def order(orderId):
         if orderItem.isClosed:
             return closedOrderRedirect(orderItem)
 
-        description = request.form.get("description", "").strip()
-        person = request.form.get("person", "").strip()
-        entryDate = parseFormDate(request.form.get("date"))
-
         if "cost_submit" in request.form:
             db.session.add(
                 Cost(
-                    description=description,
-                    amount=float(request.form["amount"]),
-                    person=person,
-                    date=entryDate,
+                    description=request.form.get("description", "").strip(),
+                    amount=parseFormAmount(request.form.get("amount")),
+                    saleAmount=parseFormAmount(
+                        request.form.get("saleAmount")
+                    ),
+                    person=request.form.get("person", "").strip(),
+                    date=parseFormDate(request.form.get("date")),
                     order=orderItem,
                 )
             )
@@ -419,10 +564,10 @@ def order(orderId):
         elif "time_submit" in request.form:
             db.session.add(
                 WorkTime(
-                    description=description,
-                    hours=float(request.form["hours"]),
-                    person=person,
-                    date=entryDate,
+                    description=request.form.get("description", "").strip(),
+                    hours=parseFormAmount(request.form.get("hours")),
+                    person=request.form.get("person", "").strip(),
+                    date=parseFormDate(request.form.get("date")),
                     order=orderItem,
                 )
             )
@@ -430,14 +575,38 @@ def order(orderId):
         elif "income_submit" in request.form:
             db.session.add(
                 Income(
-                    description=description,
-                    amount=float(request.form["amount"]),
-                    person=person,
-                    date=entryDate,
+                    description=request.form.get("description", "").strip(),
+                    amount=parseFormAmount(request.form.get("amount")),
+                    person=request.form.get("person", "").strip(),
+                    date=parseFormDate(request.form.get("date")),
                     order=orderItem,
                 )
             )
             message = "Einnahme wurde hinzugefügt."
+        elif "attach_vehicle_submit" in request.form:
+            attachedVehicleId = parseFormInteger(
+                request.form.get("attached_vehicle_id")
+            )
+            attachedVehicle = (
+                Vehicle.query.get(attachedVehicleId)
+                if attachedVehicleId
+                else None
+            )
+            if not attachedVehicle:
+                flash("Fahrzeug zum Anhaengen wurde nicht gefunden.", "danger")
+                return redirect(url_for("order", orderId=orderItem.id))
+            if attachedVehicle.id == orderItem.vehicle_id:
+                flash(
+                    "Das Hauptfahrzeug ist bereits mit diesem Auftrag verbunden.",
+                    "warning",
+                )
+                return redirect(url_for("order", orderId=orderItem.id))
+            if attachedVehicle in orderItem.attachedVehicles:
+                flash("Dieses Fahrzeug ist bereits angehaengt.", "info")
+                return redirect(url_for("order", orderId=orderItem.id))
+
+            orderItem.attachedVehicles.append(attachedVehicle)
+            message = "Fahrzeug wurde an den Auftrag angehaengt."
         else:
             flash("Unbekannte Aktion.", "danger")
             return redirect(url_for("order", orderId=orderItem.id))
@@ -446,7 +615,33 @@ def order(orderId):
         flash(message, "success")
         return redirect(url_for("order", orderId=orderItem.id))
 
+    orderItem.lastOpenedAt = datetime.now()
+    db.session.commit()
+
     totalCost, totalIncome, totalHours, result = orderTotals(orderItem)
+    directCost = sum((item.amount or 0) for item in orderItem.costs)
+    directIncome = sum((item.amount or 0) for item in orderItem.incomes)
+    directHours = sum((item.hours or 0) for item in orderItem.times)
+    attachedVehicleSummaries = [
+        totalsSummary(attachedVehicle, ownVehicleTotals(attachedVehicle))
+        for attachedVehicle in sorted(
+            orderItem.attachedVehicles,
+            key=lambda item: (item.brand or "", item.model or "", item.id),
+        )
+    ]
+    attachedVehicleIds = {
+        attachedVehicle.id for attachedVehicle in orderItem.attachedVehicles
+    }
+    attachableVehicles = [
+        vehicleItem
+        for vehicleItem in Vehicle.query.order_by(
+            Vehicle.brand,
+            Vehicle.model,
+            Vehicle.id,
+        ).all()
+        if vehicleItem.id != orderItem.vehicle_id
+        and vehicleItem.id not in attachedVehicleIds
+    ]
     return render_template(
         "order.html",
         order=orderItem,
@@ -469,6 +664,11 @@ def order(orderId):
         totalIncome=totalIncome,
         totalHours=totalHours,
         result=result,
+        directCost=directCost,
+        directIncome=directIncome,
+        directHours=directHours,
+        attachedVehicleSummaries=attachedVehicleSummaries,
+        attachableVehicles=attachableVehicles,
     )
 
 
@@ -509,6 +709,24 @@ def closeOrder(orderId):
     return redirect(url_for("order", orderId=orderItem.id))
 
 
+@app.route("/order/<int:orderId>/detach_vehicle/<int:vehicleId>", methods=["POST"])
+@loginRequired
+def detachVehicleFromOrder(orderId, vehicleId):
+    orderItem = Order.query.get_or_404(orderId)
+    if orderItem.isClosed:
+        return closedOrderRedirect(orderItem)
+
+    attachedVehicle = Vehicle.query.get_or_404(vehicleId)
+    if attachedVehicle in orderItem.attachedVehicles:
+        orderItem.attachedVehicles.remove(attachedVehicle)
+        db.session.commit()
+        flash("Fahrzeug wurde vom Auftrag geloest.", "success")
+    else:
+        flash("Dieses Fahrzeug ist nicht an den Auftrag angehaengt.", "info")
+
+    return redirect(url_for("order", orderId=orderItem.id))
+
+
 @app.route("/edit_cost/<int:costId>", methods=["GET", "POST"])
 @loginRequired
 def editCost(costId):
@@ -518,7 +736,8 @@ def editCost(costId):
 
     if request.method == "POST":
         cost.description = request.form.get("description", "").strip()
-        cost.amount = float(request.form["amount"])
+        cost.amount = parseFormAmount(request.form.get("amount"))
+        cost.saleAmount = parseFormAmount(request.form.get("saleAmount"))
         cost.person = request.form.get("person", "").strip()
         cost.date = parseFormDate(request.form.get("date"))
         db.session.commit()
@@ -537,7 +756,7 @@ def editTime(timeId):
 
     if request.method == "POST":
         workTime.description = request.form.get("description", "").strip()
-        workTime.hours = float(request.form["hours"])
+        workTime.hours = parseFormAmount(request.form.get("hours"))
         workTime.person = request.form.get("person", "").strip()
         workTime.date = parseFormDate(request.form.get("date"))
         db.session.commit()
@@ -556,7 +775,7 @@ def editIncome(incomeId):
 
     if request.method == "POST":
         income.description = request.form.get("description", "").strip()
-        income.amount = float(request.form["amount"])
+        income.amount = parseFormAmount(request.form.get("amount"))
         income.person = request.form.get("person", "").strip()
         income.date = parseFormDate(request.form.get("date"))
         db.session.commit()

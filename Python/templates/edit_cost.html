@@ -15,8 +15,12 @@
         </div>
         <div class="grid">
             <div class="field span-6">
-                <label for="amount">Betrag (€)</label>
+                <label for="amount">EK (€)</label>
                 <input id="amount" type="number" step="0.01" min="0" name="amount" value="{{ cost.amount }}" required>
+            </div>
+            <div class="field span-6">
+                <label for="saleAmount">VK (€)</label>
+                <input id="saleAmount" type="number" step="0.01" min="0" name="saleAmount" value="{{ cost.saleAmount or 0 }}" required>
             </div>
             <div class="field span-6">
                 <label for="person">Bezahlt von</label>

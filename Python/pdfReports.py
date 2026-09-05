@@ -323,6 +323,42 @@ def hoursCell(value, styles, bold=False):
     )
 
 
+def directOrderTotals(order):
+    totalCost = sum((item.amount or 0) for item in order.costs)
+    totalIncome = sum((item.amount or 0) for item in order.incomes)
+    totalHours = sum((item.hours or 0) for item in order.times)
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def ownVehicleTotals(vehicle):
+    totalCost = sum(
+        (cost.amount or 0)
+        for order in vehicle.orders
+        for cost in order.costs
+    )
+    totalIncome = sum(
+        (income.amount or 0)
+        for order in vehicle.orders
+        for income in order.incomes
+    )
+    totalHours = sum(
+        (workTime.hours or 0)
+        for order in vehicle.orders
+        for workTime in order.times
+    )
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
+def orderTotals(order):
+    totalCost, totalIncome, totalHours, _ = directOrderTotals(order)
+    for vehicle in order.attachedVehicles:
+        vehicleCost, vehicleIncome, vehicleHours, _ = ownVehicleTotals(vehicle)
+        totalCost += vehicleCost
+        totalIncome += vehicleIncome
+        totalHours += vehicleHours
+    return totalCost, totalIncome, totalHours, totalIncome - totalCost
+
+
 def sectionTable(title, headers, rows, widths, styles, emptyText):
     columnCount = len(headers)
     data = [
@@ -382,14 +418,20 @@ def costTable(costs, styles):
             detailCell(item.description, item.date, styles),
             Paragraph(safeText(item.person), styles["body"]),
             amountCell(item.amount, styles, forceNegative=True),
+            amountCell(item.saleAmount, styles),
         ]
         for item in sorted(costs, key=lambda item: item.date or datetime.min)
     ]
     return sectionTable(
         "Ausgaben",
-        ["Beschreibung", "Person", "Betrag"],
+        ["Beschreibung", "Person", "EK", "VK"],
         rows,
-        [CONTENT_WIDTH * 0.57, CONTENT_WIDTH * 0.23, CONTENT_WIDTH * 0.20],
+        [
+            CONTENT_WIDTH * 0.48,
+            CONTENT_WIDTH * 0.22,
+            CONTENT_WIDTH * 0.15,
+            CONTENT_WIDTH * 0.15,
+        ],
         styles,
         "Keine Ausgaben erfasst",
     )
@@ -433,6 +475,44 @@ def incomeTable(incomes, styles):
     )
 
 
+def attachedVehicleTable(vehicles, styles):
+    rows = []
+    for vehicle in sorted(
+        vehicles,
+        key=lambda item: (item.brand or "", item.model or "", item.id),
+    ):
+        totalCost, totalIncome, totalHours, result = ownVehicleTotals(vehicle)
+        rows.append(
+            [
+                Paragraph(safeText(vehicle.displayName), styles["body"]),
+                Paragraph(
+                    safeText(vehicle.vin or vehicle.licensePlate),
+                    styles["body"],
+                ),
+                amountCell(totalCost, styles, forceNegative=True),
+                amountCell(totalIncome, styles),
+                hoursCell(totalHours, styles),
+                amountCell(result, styles),
+            ]
+        )
+
+    return sectionTable(
+        "Angehängte Fahrzeuge",
+        ["Fahrzeug", "FIN/VIN", "EK", "Einnahmen", "Stunden", "Ergebnis"],
+        rows,
+        [
+            CONTENT_WIDTH * 0.25,
+            CONTENT_WIDTH * 0.20,
+            CONTENT_WIDTH * 0.13,
+            CONTENT_WIDTH * 0.17,
+            CONTENT_WIDTH * 0.11,
+            CONTENT_WIDTH * 0.14,
+        ],
+        styles,
+        "Keine Fahrzeuge angehängt",
+    )
+
+
 def summaryTable(totalCost, totalIncome, totalHours, result, styles, title):
     data = [
         [
@@ -440,7 +520,7 @@ def summaryTable(totalCost, totalIncome, totalHours, result, styles, title):
             "",
         ],
         [
-            Paragraph("Ausgaben", styles["body"]),
+            Paragraph("EK", styles["body"]),
             amountCell(totalCost, styles, forceNegative=True),
         ],
         [
@@ -494,21 +574,32 @@ def buildOrderPdf(order, totals):
     elements = [
         orderBanner(order, styles),
         Spacer(1, 4 * mm),
-        costTable(order.costs, styles),
-        Spacer(1, 4 * mm),
-        timeTable(order.times, styles),
-        Spacer(1, 4 * mm),
-        incomeTable(order.incomes, styles),
-        Spacer(1, 5 * mm),
-        summaryTable(
-            totalCost,
-            totalIncome,
-            totalHours,
-            result,
-            styles,
-            "Zusammenfassung",
-        ),
     ]
+    if order.attachedVehicles:
+        elements.extend(
+            [
+                attachedVehicleTable(order.attachedVehicles, styles),
+                Spacer(1, 4 * mm),
+            ]
+        )
+    elements.extend(
+        [
+            costTable(order.costs, styles),
+            Spacer(1, 4 * mm),
+            timeTable(order.times, styles),
+            Spacer(1, 4 * mm),
+            incomeTable(order.incomes, styles),
+            Spacer(1, 5 * mm),
+            summaryTable(
+                totalCost,
+                totalIncome,
+                totalHours,
+                result,
+                styles,
+                "Zusammenfassung",
+            ),
+        ]
+    )
     document.build(
         elements,
         onFirstPage=drawBrandHeader,
@@ -569,16 +660,21 @@ def buildVehiclePdf(vehicle, totals):
             elements.extend(
                 [incomeTable(order.incomes, styles), Spacer(1, 3 * mm)]
             )
+        if order.attachedVehicles:
+            elements.extend(
+                [
+                    attachedVehicleTable(order.attachedVehicles, styles),
+                    Spacer(1, 3 * mm),
+                ]
+            )
 
-        orderCost = sum((item.amount or 0) for item in order.costs)
-        orderIncome = sum((item.amount or 0) for item in order.incomes)
-        orderHours = sum((item.hours or 0) for item in order.times)
+        orderCost, orderIncome, orderHours, orderResult = orderTotals(order)
         elements.append(
             summaryTable(
                 orderCost,
                 orderIncome,
                 orderHours,
-                orderIncome - orderCost,
+                orderResult,
                 styles,
                 f"Auftragssumme: {order.title}",
             )

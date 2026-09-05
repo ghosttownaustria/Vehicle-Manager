@@ -50,6 +50,12 @@ def parseBoolean(value):
     return bool(value)
 
 
+def parseOptionalDate(dateValue):
+    if dateValue is None or dateValue == "":
+        return None
+    return parseDate(dateValue)
+
+
 def clearScreen():
     print("\n" * 3)
 
@@ -122,8 +128,17 @@ def listAllDetails():
         for order in vehicle.orders:
             status = "geschlossen" if order.isClosed else "offen"
             print(f"  Auftrag {order.id}: {order.title} [{status}]")
+            for attachedVehicle in order.attachedVehicles:
+                print(
+                    f"    Angehängtes Fahrzeug: "
+                    f"{attachedVehicle.id} - {attachedVehicle.displayName}"
+                )
             for cost in order.costs:
-                print(f"    Ausgabe: {cost.description} - {cost.amount:.2f} €")
+                print(
+                    f"    Ausgabe: {cost.description} - "
+                    f"EK {(cost.amount or 0):.2f} €, "
+                    f"VK {(cost.saleAmount or 0):.2f} €"
+                )
             for workTime in order.times:
                 print(
                     f"    Arbeitszeit: {workTime.description} - "
@@ -155,6 +170,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
 
     for vehicle in Vehicle.query.order_by(Vehicle.id).all():
         vehicleData = {
+            "exportId": vehicle.id,
             "brand": vehicle.brand,
             "model": vehicle.model,
             "vin": vehicle.vin,
@@ -166,6 +182,11 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
             "fuel": vehicle.fuel,
             "engineCode": vehicle.engineCode,
             "licensePlate": vehicle.licensePlate,
+            "lastOpenedAt": (
+                vehicle.lastOpenedAt.isoformat()
+                if vehicle.lastOpenedAt
+                else None
+            ),
             "orders": [],
         }
 
@@ -178,6 +199,15 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                 "closedAt": (
                     order.closedAt.isoformat() if order.closedAt else None
                 ),
+                "lastOpenedAt": (
+                    order.lastOpenedAt.isoformat()
+                    if order.lastOpenedAt
+                    else None
+                ),
+                "attachedVehicleIds": [
+                    attachedVehicle.id
+                    for attachedVehicle in order.attachedVehicles
+                ],
                 "costs": [],
                 "times": [],
                 "incomes": [],
@@ -188,6 +218,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                     {
                         "description": cost.description,
                         "amount": cost.amount,
+                        "saleAmount": cost.saleAmount,
                         "person": cost.person,
                         "date": cost.date.isoformat() if cost.date else None,
                     }
@@ -256,6 +287,8 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
 
         # Relationship assignment sets all foreign keys during the final flush.
         # Avoiding a flush for every single order keeps large old exports fast.
+        sourceVehicleMap = {}
+        pendingOrderAttachments = []
         with db.session.no_autoflush:
             for index, vehicleData in enumerate(data, start=1):
                 if not isinstance(vehicleData, dict):
@@ -275,8 +308,18 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                     fuel=vehicleData.get("fuel", ""),
                     engineCode=vehicleData.get("engineCode", ""),
                     licensePlate=vehicleData.get("licensePlate", ""),
+                    lastOpenedAt=parseOptionalDate(
+                        vehicleData.get("lastOpenedAt")
+                    ),
                 )
                 db.session.add(vehicle)
+                for sourceVehicleKey in {
+                    vehicleData.get("exportId"),
+                    vehicleData.get("id"),
+                    index,
+                }:
+                    if sourceVehicleKey is not None:
+                        sourceVehicleMap[sourceVehicleKey] = vehicle
 
                 for orderData in vehicleData.get("orders", []):
                     isClosed = parseBoolean(
@@ -299,16 +342,32 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                             if isClosed
                             else None
                         ),
+                        lastOpenedAt=parseOptionalDate(
+                            orderData.get("lastOpenedAt")
+                        ),
                         vehicle=vehicle,
                     )
                     db.session.add(order)
                     orderCount += 1
+                    pendingOrderAttachments.append(
+                        (
+                            order,
+                            orderData.get("attachedVehicleIds", []),
+                        )
+                    )
 
                     for costData in orderData.get("costs", []):
                         order.costs.append(
                             Cost(
                                 description=costData.get("description", ""),
                                 amount=float(costData.get("amount", 0) or 0),
+                                saleAmount=float(
+                                    costData.get(
+                                        "saleAmount",
+                                        costData.get("sale_amount", 0),
+                                    )
+                                    or 0
+                                ),
                                 person=costData.get("person", ""),
                                 date=parseDate(costData.get("date")),
                             )
@@ -341,6 +400,18 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                     f"  [{index}/{vehicleCount}] "
                     f"{vehicle.displayName or 'Unbenanntes Fahrzeug'}"
                 )
+
+            for order, attachedVehicleIds in pendingOrderAttachments:
+                if not isinstance(attachedVehicleIds, list):
+                    continue
+                for attachedVehicleId in attachedVehicleIds:
+                    attachedVehicle = sourceVehicleMap.get(attachedVehicleId)
+                    if (
+                        attachedVehicle
+                        and attachedVehicle is not order.vehicle
+                        and attachedVehicle not in order.attachedVehicles
+                    ):
+                        order.attachedVehicles.append(attachedVehicle)
 
         db.session.commit()
     except OperationalError as error:

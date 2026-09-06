@@ -4,8 +4,11 @@ Vehicle Manager
 
 ## Servicehistorie im Python-Projekt
 
-Auf jeder Fahrzeugseite zeigt die Servicehistorie eine Zeitachse mit Datum,
-Kilometerstand, Beschreibung und verknüpften Aufträgen. Über **Neuer
+Auf jeder Fahrzeugseite zeigt die Servicehistorie eine Kurve mit Datum und
+Kilometerstand. Beim Überfahren oder Fokussieren eines Punkts erscheinen Kurzinfos;
+ein Klick oder Antippen öffnet die vollständige Beschreibung, Arbeiten und
+verknüpften Aufträge. Dicht beieinanderliegende Einträge werden als Punkt mit
+Anzahl zusammengefasst und lassen sich gemeinsam öffnen. Über **Neuer
 Historieneintrag** können Techniker und Admins mehrere Kategorien (z. B. Service
 und Reparatur), Standardarbeiten und offene oder geschlossene Aufträge desselben
 Fahrzeugs auswählen. Kategorien haben eigene Farben und Symbole. Einträge lassen
@@ -14,6 +17,8 @@ Kunden können die Historie ihrer zugewiesenen Fahrzeuge ansehen.
 
 Die Filter für Kategorie und Standardarbeit lassen sich mit der Suche in der
 Beschreibung kombinieren. Die Suche ignoriert Groß- und Kleinschreibung.
+Filter blenden nur Ereignispunkte ein oder aus. Die vollständige Kilometerkurve
+und ihre Achsen bleiben auch bei null Treffern unverändert.
 
 Die benötigten Tabellen werden beim nächsten Start automatisch ergänzt. Die
 Historie ist auch im JSON-Export und -Import des Datenbankmanagers enthalten;

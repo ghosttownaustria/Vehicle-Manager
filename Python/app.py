@@ -73,7 +73,7 @@ SERVICE_CATEGORIES = [
     {"value": "service", "label": "Service", "symbol": "⚙"},
     {"value": "repair", "label": "Reparatur", "symbol": "🔧"},
     {"value": "tires", "label": "Reifenwechsel", "symbol": "◉"},
-    {"value": "inspection", "label": "HU / AU", "symbol": "✓"},
+    {"value": "inspection", "label": "§57a / Pickerl", "symbol": "§"},
     {"value": "other", "label": "Sonstiges", "symbol": "•"},
 ]
 STANDARD_WORK_OPTIONS = [
@@ -87,7 +87,8 @@ STANDARD_WORK_OPTIONS = [
     ("brake_pads", "Bremsbeläge"),
     ("brake_discs", "Bremsscheiben"),
     ("coolant", "Kühlmittelwechsel"),
-    ("timing_belt", "Zahnriemen"),
+    ("timing_belt", "Zahnriemen / Steuerkette"),
+    ("v_belt", "Keilriemen "),
     ("battery", "Batterie"),
     ("tire_change", "Reifenwechsel"),
     ("wheel_alignment", "Achsvermessung"),
@@ -1001,6 +1002,10 @@ def vehicle(vehicleId):
         .all()
     )
     historyTotal = len(historyEntries)
+    historyCurvePoints = [
+        {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage}
+        for entry in historyEntries
+    ]
     # Casefold also handles German umlauts; search terms are literal substrings.
     historyEntries = [
         entry for entry in historyEntries
@@ -1021,6 +1026,7 @@ def vehicle(vehicleId):
         result=result,
         historyEntries=historyEntries,
         historyTotal=historyTotal,
+        historyCurvePoints=historyCurvePoints,
         historyFilters=historyFilters,
         serviceCategories=SERVICE_CATEGORIES,
         standardWorkOptions=STANDARD_WORK_OPTIONS,

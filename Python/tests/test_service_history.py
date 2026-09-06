@@ -244,6 +244,37 @@ class ServiceHistoryTests(unittest.TestCase):
             with self.subTest(term=term):
                 self.assertEqual(self.history_ids(q=term), [mixed.id])
 
+    def test_filters_preserve_full_vehicle_curve_even_without_matching_points(self):
+        first = self.create_entry(date="2024-01-01", mileage="80000")
+        last = self.create_entry(
+            date="2026-01-01", mileage="125000", categories=["tires"],
+            works=["tire_change"], description="Sommerreifen montiert",
+        )
+        self.client.post(
+            self.add_url(self.other_vehicle),
+            data=self.form_data(mileage="999999", orderIds=[]),
+        )
+        expected_curve = [
+            {"id": last.id, "date": "2026-01-01", "mileage": 125000},
+            {"id": first.id, "date": "2024-01-01", "mileage": 80000},
+        ]
+        for filters, visible_ids in (
+            ({}, [last.id, first.id]),
+            ({"category": "service"}, [first.id]),
+            ({"work": "tire_change"}, [last.id]),
+            ({"category": "tires", "work": "tire_change", "q": "Sommer"}, [last.id]),
+            ({"q": "kein passender Eintrag"}, []),
+        ):
+            with self.subTest(filters=filters), captured_templates() as templates:
+                response = self.client.get(
+                    f"/vehicle/{self.vehicle.id}", query_string=filters,
+                )
+                self.assertEqual(response.status_code, 200)
+                context = next(context for name, context in templates if name == "vehicle.html")
+                self.assertEqual(context["historyCurvePoints"], expected_curve)
+                self.assertEqual([item.id for item in context["historyEntries"]], visible_ids)
+                self.assertIn("data-history-chart", response.get_data(as_text=True))
+
     def test_customer_can_read_assigned_vehicle_but_cannot_modify_history(self):
         entry = self.create_entry()
         before = self.snapshot(entry)

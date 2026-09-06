@@ -2,7 +2,7 @@
     <div class="card-header history-header">
         <div>
             <h2 id="history-heading">Servicehistorie</h2>
-            <p class="muted history-intro">Wartung, Reparaturen und Reifenwechsel · Neueste Einträge zuerst</p>
+            <p class="muted history-intro">Wartung, Reparaturen und Reifenwechsel im Kilometerverlauf</p>
         </div>
         {% if currentUser.canModifyVehicles %}
             <a class="btn btn-primary" href="{{ url_for('addServiceHistory', vehicleId=vehicle.id) }}">Neuer Historieneintrag</a>
@@ -45,17 +45,43 @@
 
     <p class="history-count muted" role="status">{{ historyEntries|length }} von {{ historyTotal }} {{ 'Eintrag' if historyTotal == 1 else 'Einträgen' }}</p>
 
-    {% if historyEntries %}
-        <ol class="history-timeline" aria-label="Zeitachse der Servicehistorie">
+    {% if historyTotal %}
+        <div class="history-chart" data-history-chart hidden>
+            <div class="history-chart-heading">
+                <h3>Kilometerverlauf</h3>
+                <span class="history-chart-latest" data-history-latest></span>
+            </div>
+            <div class="history-chart-plot" data-history-plot>
+                <svg data-history-svg role="img" aria-label="Kilometerstand im Zeitverlauf. Die einzelnen Historieneinträge sind als auswählbare Punkte dargestellt."></svg>
+                <div class="history-chart-points" data-history-points role="group" aria-label="Historieneinträge auf der Zeitachse"></div>
+                <div class="history-chart-tooltip" data-history-tooltip role="tooltip" id="history-chart-tooltip" hidden></div>
+            </div>
+            <div class="history-chart-footer">
+                <div class="history-chart-legend" aria-label="Kategorien der Historieneinträge">
+                    {% for category in serviceCategories %}
+                        <span class="history-chart-legend-item"><span class="history-chart-legend-symbol history-category-{{ category.value }}" aria-hidden="true">{{ category.symbol }}</span>{{ category.label }}</span>
+                    {% endfor %}
+                </div>
+                <p class="hint history-chart-hint">Für Kurzinfos über einen Punkt fahren. Anklicken oder antippen öffnet alle Details. Filter ändern nur die sichtbaren Punkte; die Kilometerkurve bleibt vollständig.</p>
+            </div>
+        </div>
+        <script type="application/json" data-history-categories>{{ serviceCategories|tojson }}</script>
+        <script type="application/json" data-history-curve>{{ historyCurvePoints|tojson }}</script>
+        {% if not historyEntries %}
+            <p class="empty history-no-results">Keine Einträge für diese Filter gefunden. Die Kilometerkurve bleibt sichtbar.</p>
+        {% endif %}
+        <div class="history-fallback" data-history-fallback>
             {% for entry in historyEntries %}
-                <li class="history-item" id="history-entry-{{ entry.id }}">
-                    <div class="history-markers" aria-hidden="true">
+                <details class="history-fallback-entry" id="history-entry-{{ entry.id }}" data-history-entry data-id="{{ entry.id }}" data-date="{{ entry.date.isoformat() }}" data-mileage="{{ entry.mileage }}" data-categories='{{ entry.categories|tojson }}'>
+                    <summary>
+                        <time datetime="{{ entry.date.isoformat() }}">{{ entry.date.strftime('%d.%m.%Y') }}</time>
+                        <span class="history-mileage">· {{ '{:,}'.format(entry.mileage).replace(',', '.') }} km</span>
                         {% for category in serviceCategories %}
                             {% if category.value in entry.categories %}
-                                <span class="history-marker history-category-{{ category.value }}" title="{{ category.label }}">{{ category.symbol }}</span>
+                                <span class="badge history-category-{{ category.value }}">{{ category.label }}</span>
                             {% endif %}
                         {% endfor %}
-                    </div>
+                    </summary>
                     <article class="history-entry" aria-labelledby="history-entry-heading-{{ entry.id }}">
                         <div class="history-entry-header">
                             <h3 id="history-entry-heading-{{ entry.id }}">
@@ -108,11 +134,16 @@
                             </div>
                         {% endif %}
                     </article>
-                </li>
+                </details>
             {% endfor %}
-        </ol>
-    {% elif historyTotal %}
-        <div class="empty">Keine Einträge für diese Filter gefunden. Ändere die Auswahl oder setze die Filter zurück.</div>
+        </div>
+        <dialog class="history-dialog" id="history-entry-dialog" aria-label="Historieneintrag">
+            <div class="history-dialog-toolbar">
+                <strong>Historieneintrag</strong>
+                <button type="button" class="btn btn-secondary btn-sm" data-history-close autofocus>Schließen <span aria-hidden="true">×</span></button>
+            </div>
+            <div data-history-dialog-content></div>
+        </dialog>
     {% else %}
         <div class="empty">
             Noch keine Servicehistorie vorhanden.

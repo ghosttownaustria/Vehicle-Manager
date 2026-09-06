@@ -93,6 +93,7 @@ STANDARD_WORK_OPTIONS = [
     ("battery", "Batterie"),
     ("tire_change", "Reifenwechsel"),
     ("wheel_alignment", "Achsvermessung"),
+    ("windshield_wipers", "Scheibenwischer"),
 ]
 
 

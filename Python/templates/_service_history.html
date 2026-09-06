@@ -49,7 +49,16 @@
         <div class="history-chart" data-history-chart hidden>
             <div class="history-chart-heading">
                 <h3>Kilometerverlauf</h3>
-                <span class="history-chart-latest" data-history-latest></span>
+                <div class="history-chart-summary">
+                    <span class="history-chart-latest" data-history-latest></span>
+                    {% if historyProjection %}
+                        <span class="history-chart-estimate" data-history-estimate>
+                            <span>Geschätzt für heute · {{ historyProjection.date[8:10] }}.{{ historyProjection.date[5:7] }}.{{ historyProjection.date[:4] }}</span>
+                            <strong>ca. {{ '{:,}'.format(historyProjection.mileage).replace(',', '.') }} km</strong>
+                            <span>Ø {{ '{:.1f}'.format(historyProjection.dailyMileage).replace('.', ',') }} km pro Tag</span>
+                        </span>
+                    {% endif %}
+                </div>
             </div>
             <div class="history-chart-plot" data-history-plot>
                 <svg data-history-svg role="img" aria-label="Kilometerstand im Zeitverlauf. Die einzelnen Historieneinträge sind als auswählbare Punkte dargestellt."></svg>
@@ -61,12 +70,16 @@
                     {% for category in serviceCategories %}
                         <span class="history-chart-legend-item"><span class="history-chart-legend-symbol history-category-{{ category.value }}" aria-hidden="true">{{ category.symbol }}</span>{{ category.label }}</span>
                     {% endfor %}
+                    {% if historyProjection %}
+                        <span class="history-chart-legend-item"><span class="history-chart-projection-key" aria-hidden="true"></span>Schätzung bis heute</span>
+                    {% endif %}
                 </div>
                 <p class="hint history-chart-hint">Für Kurzinfos über einen Punkt fahren. Anklicken oder antippen öffnet alle Details. Filter ändern nur die sichtbaren Punkte; die Kilometerkurve bleibt vollständig.</p>
             </div>
         </div>
         <script type="application/json" data-history-categories>{{ serviceCategories|tojson }}</script>
         <script type="application/json" data-history-curve>{{ historyCurvePoints|tojson }}</script>
+        <script type="application/json" data-history-projection>{{ historyProjection|tojson }}</script>
         {% if not historyEntries %}
             <p class="empty history-no-results">Keine Einträge für diese Filter gefunden. Die Kilometerkurve bleibt sichtbar.</p>
         {% endif %}

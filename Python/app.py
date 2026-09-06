@@ -13,6 +13,7 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
+from historyProjection import projectMileage
 from pdfReports import buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import selectinload
@@ -1027,6 +1028,7 @@ def vehicle(vehicleId):
         historyEntries=historyEntries,
         historyTotal=historyTotal,
         historyCurvePoints=historyCurvePoints,
+        historyProjection=projectMileage(historyCurvePoints),
         historyFilters=historyFilters,
         serviceCategories=SERVICE_CATEGORIES,
         standardWorkOptions=STANDARD_WORK_OPTIONS,

@@ -20,6 +20,12 @@ Beschreibung kombinieren. Die Suche ignoriert Groß- und Kleinschreibung.
 Filter blenden nur Ereignispunkte ein oder aus. Die vollständige Kilometerkurve
 und ihre Achsen bleiben auch bei null Treffern unverändert.
 
+Ab dem letzten Eintrag wird die Kurve gestrichelt bis heute verlängert. Die
+Schätzung nutzt die durchschnittliche Fahrleistung pro Tag, gewichtet nach der
+Dauer zwischen den Einträgen. Dafür sind mindestens zwei unterschiedliche Tage
+erforderlich; Zeiträume mit sinkendem Kilometerstand werden ausgelassen.
+Geschätzte Kilometerstände werden nur angezeigt und nicht als Eintrag gespeichert.
+
 Die benötigten Tabellen werden beim nächsten Start automatisch ergänzt. Die
 Historie ist auch im JSON-Export und -Import des Datenbankmanagers enthalten;
 ältere Exporte ohne Historie können weiterhin importiert werden.

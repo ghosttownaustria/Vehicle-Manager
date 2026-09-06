@@ -38,6 +38,11 @@
         mileage: item.mileage,
     })).sort((a, b) => a.time - b.time || Number(a.id) - Number(b.id));
     if (!curveEntries.length) return;
+    const projectionData = JSON.parse(section.querySelector("[data-history-projection]").textContent);
+    const projection = projectionData ? {
+        time: Date.parse(`${projectionData.date}T00:00:00Z`),
+        mileage: projectionData.mileage,
+    } : null;
 
     let openedEntries = [];
     let activeButton = null;
@@ -157,12 +162,14 @@
 
         const left = 26, right = width - 82, top = 24, bottom = height - 48;
         const values = curveEntries.map(item => item.mileage);
+        if (projection) values.push(projection.mileage);
         const minimum = Math.min(...values), maximum = Math.max(...values);
         const span = Math.max(maximum - minimum, maximum * 0.08, 100);
         const step = Math.max(1, tickStep(span / 4));
         const lower = Math.max(0, Math.floor((minimum - span * 0.1) / step) * step);
         const upper = Math.ceil((maximum + span * 0.1) / step) * step;
-        const firstTime = curveEntries[0].time, lastTime = curveEntries[curveEntries.length - 1].time;
+        const firstTime = curveEntries[0].time;
+        const lastTime = projection?.time ?? curveEntries[curveEntries.length - 1].time;
         const xPosition = time => firstTime === lastTime ? (left + right) / 2 : left + (time - firstTime) / (lastTime - firstTime) * (right - left);
         const yPosition = mileage => bottom - (mileage - lower) / (upper - lower) * (bottom - top);
 
@@ -184,7 +191,7 @@
             svg.append(svgElement("text", {
                 x: xPosition(time), y: height - 12, class: "history-chart-axis-label",
                 "text-anchor": tickCount === 1 ? "middle" : i === 0 ? "start" : i === tickCount - 1 ? "end" : "middle",
-            }, label));
+            }, projection && i === tickCount - 1 ? "Heute" : label));
         }
 
         const points = curveEntries.map(item => ({item, x: xPosition(item.time), y: yPosition(item.mileage)}));
@@ -198,6 +205,20 @@
         if (points.length > 1) {
             svg.append(svgElement("path", {d: `${path} L ${points[points.length - 1].x} ${bottom} L ${points[0].x} ${bottom} Z`, class: "history-chart-area"}));
             svg.append(svgElement("path", {d: path, class: "history-chart-line"}));
+        }
+        if (projection) {
+            const lastPoint = points[points.length - 1];
+            const endX = xPosition(projection.time), endY = yPosition(projection.mileage);
+            svg.append(svgElement("path", {
+                d: `M ${lastPoint.x} ${lastPoint.y} L ${endX} ${endY}`,
+                class: "history-chart-projection",
+            }));
+            const endpoint = svgElement("circle", {
+                cx: endX, cy: endY, r: 4, class: "history-chart-projection-end",
+            });
+            endpoint.append(svgElement("title", {},
+                `Schätzung für ${dateLabel.format(projection.time)}: ca. ${number.format(projection.mileage)} km`));
+            svg.append(endpoint);
         }
 
         // Count close points together so overlapping dates/mileages remain clickable.

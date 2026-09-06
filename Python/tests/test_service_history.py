@@ -4,7 +4,7 @@ import io
 import json
 import os
 from contextlib import contextmanager, redirect_stdout
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import sys
 import tempfile
@@ -274,6 +274,29 @@ class ServiceHistoryTests(unittest.TestCase):
                 self.assertEqual(context["historyCurvePoints"], expected_curve)
                 self.assertEqual([item.id for item in context["historyEntries"]], visible_ids)
                 self.assertIn("data-history-chart", response.get_data(as_text=True))
+
+    def test_projection_uses_full_history_with_filters_and_is_not_saved(self):
+        today = date.today()
+        self.create_entry(
+            date=(today - timedelta(days=20)).isoformat(), mileage="1000",
+            categories=["service"],
+        )
+        self.create_entry(
+            date=(today - timedelta(days=10)).isoformat(), mileage="2000",
+            categories=["tires"], works=["tire_change"],
+        )
+        for filters in ({}, {"category": "service"}, {"q": "kein Treffer"}):
+            with self.subTest(filters=filters), captured_templates() as templates:
+                response = self.client.get(
+                    f"/vehicle/{self.vehicle.id}", query_string=filters,
+                )
+                self.assertEqual(response.status_code, 200)
+                context = next(context for name, context in templates if name == "vehicle.html")
+                self.assertEqual(context["historyProjection"], {
+                    "date": today.isoformat(), "mileage": 3000, "dailyMileage": 100,
+                })
+                self.assertEqual(ServiceHistoryEntry.query.count(), 2)
+                self.assertIn("Geschätzt für heute", response.get_data(as_text=True))
 
     def test_customer_can_read_assigned_vehicle_but_cannot_modify_history(self):
         entry = self.create_entry()

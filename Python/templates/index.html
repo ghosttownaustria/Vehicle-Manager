@@ -38,7 +38,7 @@
                 {% set open_count = vehicle.orders|selectattr('isClosed', 'equalto', false)|list|length %}
                 <a class="list-item" href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
                     <div>
-                        <div class="list-title">{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}</div>
+                        <div class="list-title">{{ vehicleName(vehicle, 'list') }}</div>
                         <div class="list-meta">
                             {{ vehicle.licensePlate or 'Kein Kennzeichen' }}
                             · FIN/VIN: {{ vehicle.vin or '–' }}

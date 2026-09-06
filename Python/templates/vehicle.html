@@ -7,7 +7,7 @@
 {% block content %}
 <div class="page-header">
     <div>
-        <h1>{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}</h1>
+        <h1>{{ vehicleName(vehicle, 'heading') }}</h1>
         <p>{{ vehicle.licensePlate or 'Kein Kennzeichen' }} · FIN/VIN: {{ vehicle.vin or '–' }} · Benutzer: {{ vehicle.assignedUsers|userList }}</p>
     </div>
     <div class="actions">

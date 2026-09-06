@@ -13,6 +13,7 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
+from brandLogos import brandLogoUrl
 from historyProjection import projectMileage
 from pdfReports import buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
@@ -212,6 +213,10 @@ class Vehicle(db.Model):
     @property
     def displayName(self):
         return f"{self.brand or ''} {self.model or ''}".strip()
+
+    @property
+    def brandLogoUrl(self):
+        return brandLogoUrl(self.brand)
 
 
 class Order(db.Model):

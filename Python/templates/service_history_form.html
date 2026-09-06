@@ -7,7 +7,7 @@
 <div class="page-header">
     <div>
         <h1>{{ 'Historieneintrag bearbeiten' if entry else 'Neuer Historieneintrag' }}</h1>
-        <p>{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }} · {{ vehicle.licensePlate or 'Kein Kennzeichen' }}</p>
+        <p>{{ vehicleName(vehicle) }} · {{ vehicle.licensePlate or 'Kein Kennzeichen' }}</p>
     </div>
     <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}">Zur Servicehistorie</a>
 </div>

@@ -1,3 +1,4 @@
+{% from "_vehicle_name.html" import vehicleName %}
 <!doctype html>
 <html lang="de">
 <head>
@@ -40,6 +41,39 @@
         h3 { font-size: 1rem; }
         p { margin-top: 0; }
         form { margin: 0; }
+
+        .vehicle-name {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 100%;
+            vertical-align: middle;
+        }
+        .vehicle-name-text { min-width: 0; overflow-wrap: anywhere; }
+        .vehicle-logo {
+            position: relative;
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            flex: 0 0 auto;
+            overflow: hidden;
+            border-radius: 5px;
+            background: white;
+            color: var(--muted);
+        }
+        .vehicle-logo-fallback { width: 100%; height: 100%; padding: 2px; }
+        .vehicle-logo img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            padding: 2px;
+            object-fit: contain;
+            background: white;
+        }
+        .vehicle-name-list .vehicle-logo { width: 32px; height: 32px; }
+        .vehicle-name-heading { gap: 12px; }
+        .vehicle-name-heading .vehicle-logo { width: 44px; height: 44px; }
 
         .topbar {
             position: sticky;

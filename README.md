@@ -36,6 +36,19 @@ Integrationstests mit einer isolierten Datenbank aus dem Projektverzeichnis:
 python -m unittest discover -s Python/tests -v
 ```
 
+## Markenlogos im Python-Projekt
+
+Fahrzeugnamen zeigen automatisch links das Logo der eingetragenen Marke.
+Als öffentliche Quelle dient [VehicleSpecs Brand Logos](https://github.com/vehiclespecs/brand-logos)
+mit 184 Marken über jsDelivr, ohne Anmeldung oder API-Schlüssel. Auch Schreibweisen
+wie VW, Mercedes, Škoda und Citroën werden erkannt. Unbekannte Marken und
+Ladefehler zeigen ein neutrales Fahrzeugsymbol.
+
+Die Zuordnung liegt lokal in `Python/data/brand-logos/brands.json`; nur das Bild
+wird vom Browser über den CDN geladen, ohne Referrer und ohne Fahrzeugdaten in
+der URL. Katalog und Bild-URLs sind auf dieselbe feste Version gepinnt.
+Quellen- und Lizenzhinweise stehen neben dem Katalog.
+
 ## Contributors
 
 Lead Developer - [Red05Jack](https://github.com/Red05Jack)

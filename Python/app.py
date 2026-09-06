@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import date, datetime
 from functools import wraps
 
 from flask import (
@@ -15,6 +15,7 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from pdfReports import buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
+from sqlalchemy.orm import selectinload
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -66,6 +67,43 @@ ROLE_OPTIONS = [
     (ROLE_TECHNICIAN, ROLE_LABELS[ROLE_TECHNICIAN]),
     (ROLE_ADMIN, ROLE_LABELS[ROLE_ADMIN]),
 ]
+
+
+SERVICE_CATEGORIES = [
+    {"value": "service", "label": "Service", "symbol": "⚙"},
+    {"value": "repair", "label": "Reparatur", "symbol": "🔧"},
+    {"value": "tires", "label": "Reifenwechsel", "symbol": "◉"},
+    {"value": "inspection", "label": "HU / AU", "symbol": "✓"},
+    {"value": "other", "label": "Sonstiges", "symbol": "•"},
+]
+STANDARD_WORK_OPTIONS = [
+    ("engine_oil", "Ölwechsel"),
+    ("oil_filter", "Ölfilter"),
+    ("air_filter", "Luftfilter"),
+    ("cabin_filter", "Pollenfilter / Innenraumfilter"),
+    ("gearbox_oil", "Getriebeölwechsel"),
+    ("spark_plugs", "Zündkerzen"),
+    ("brake_fluid", "Bremsflüssigkeit"),
+    ("brake_pads", "Bremsbeläge"),
+    ("brake_discs", "Bremsscheiben"),
+    ("coolant", "Kühlmittelwechsel"),
+    ("timing_belt", "Zahnriemen"),
+    ("battery", "Batterie"),
+    ("tire_change", "Reifenwechsel"),
+    ("wheel_alignment", "Achsvermessung"),
+]
+
+
+serviceHistoryOrder = db.Table(
+    "service_history_order",
+    db.Column(
+        "entry_id", db.Integer, db.ForeignKey("service_history_entry.id"),
+        primary_key=True,
+    ),
+    db.Column(
+        "order_id", db.Integer, db.ForeignKey("order.id"), primary_key=True,
+    ),
+)
 
 
 orderAttachedVehicle = db.Table(
@@ -160,6 +198,13 @@ class Vehicle(db.Model):
         lazy=True,
         backref=db.backref("vehicles", lazy=True),
     )
+    serviceHistory = db.relationship(
+        "ServiceHistoryEntry",
+        backref="vehicle",
+        lazy=True,
+        cascade="all, delete-orphan",
+        order_by="(ServiceHistoryEntry.date.desc(), ServiceHistoryEntry.id.desc())",
+    )
 
     @property
     def displayName(self):
@@ -201,6 +246,31 @@ class Order(db.Model):
         secondary=orderAttachedVehicle,
         lazy=True,
         backref=db.backref("attachedToOrders", lazy=True),
+    )
+
+
+class ServiceHistoryEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    vehicle_id = db.Column(
+        db.Integer, db.ForeignKey("vehicle.id"), nullable=False, index=True,
+    )
+    date = db.Column(db.Date, nullable=False)
+    mileage = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.Text, nullable=False, default="")
+    categories = db.Column(db.JSON, nullable=False, default=list)
+    works = db.Column(db.JSON, nullable=False, default=list)
+    orders = db.relationship(
+        "Order",
+        secondary=serviceHistoryOrder,
+        lazy=True,
+        backref=db.backref("serviceHistoryEntries", lazy=True),
+        order_by="Order.id",
+    )
+    __table_args__ = (
+        db.CheckConstraint(
+            "mileage >= 0 AND mileage <= 2147483647",
+            name="service_history_mileage_range",
+        ),
     )
 
 
@@ -349,6 +419,43 @@ def parseFormInteger(value):
 
 def parseRole(value, fallback=ROLE_CUSTOMER):
     return value if value in ROLE_LABELS else fallback
+
+
+def validateServiceHistoryData(dateValue, mileageValue, categories, works):
+    """Validate both web entries and imported history without changing records."""
+    try:
+        parsedDate = date.fromisoformat(dateValue)
+        if parsedDate.isoformat() != dateValue:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise ValueError("Bitte ein gültiges Datum im Format JJJJ-MM-TT angeben.")
+
+    mileageText = str(mileageValue)
+    if (
+        not mileageText.isascii()
+        or not mileageText.isdecimal()
+        or len(mileageText) > 10
+        or int(mileageText) > 2147483647
+    ):
+        raise ValueError(
+            "Bitte einen ganzen Kilometerstand zwischen 0 und 2147483647 angeben."
+        )
+
+    categoryValues = [item["value"] for item in SERVICE_CATEGORIES]
+    workValues = [value for value, _ in STANDARD_WORK_OPTIONS]
+    if not isinstance(categories, list) or not categories:
+        raise ValueError("Bitte mindestens eine Kategorie auswählen.")
+    if any(value not in categoryValues for value in categories):
+        raise ValueError("Die ausgewählte Kategorie ist ungültig.")
+    if not isinstance(works, list) or any(value not in workValues for value in works):
+        raise ValueError("Die ausgewählte Standardarbeit ist ungültig.")
+
+    return (
+        parsedDate,
+        int(mileageText),
+        [value for value in categoryValues if value in categories],
+        [value for value in workValues if value in works],
+    )
 
 
 def currentUser():
@@ -884,6 +991,23 @@ def vehicle(vehicleId):
     totalCost, totalIncome, totalHours, result = vehicleTotalsForCurrentUser(
         vehicleItem
     )
+    historyFilters = {
+        key: request.args.get(key, "").strip() for key in ("category", "work", "q")
+    }
+    historyEntries = (
+        ServiceHistoryEntry.query.filter_by(vehicle_id=vehicleId)
+        .options(selectinload(ServiceHistoryEntry.orders))
+        .order_by(ServiceHistoryEntry.date.desc(), ServiceHistoryEntry.id.desc())
+        .all()
+    )
+    historyTotal = len(historyEntries)
+    # Casefold also handles German umlauts; search terms are literal substrings.
+    historyEntries = [
+        entry for entry in historyEntries
+        if (not historyFilters["category"] or historyFilters["category"] in entry.categories)
+        and (not historyFilters["work"] or historyFilters["work"] in entry.works)
+        and historyFilters["q"].casefold() in entry.description.casefold()
+    ]
 
     return render_template(
         "vehicle.html",
@@ -895,7 +1019,127 @@ def vehicle(vehicleId):
         totalHours=totalHours,
         totalIncome=totalIncome,
         result=result,
+        historyEntries=historyEntries,
+        historyTotal=historyTotal,
+        historyFilters=historyFilters,
+        serviceCategories=SERVICE_CATEGORIES,
+        standardWorkOptions=STANDARD_WORK_OPTIONS,
+        historyOrderLinks={
+            entry.id: [item for item in entry.orders if canAccessOrder(item)]
+            for entry in historyEntries
+        },
     )
+
+
+def serviceHistoryForm(vehicleItem, entry=None):
+    availableOrders = (
+        Order.query.filter_by(vehicle_id=vehicleItem.id)
+        .order_by(Order.date.desc(), Order.id.desc())
+        .all()
+    )
+    formValues = {
+        "date": entry.date.isoformat() if entry else date.today().isoformat(),
+        "mileage": str(entry.mileage) if entry else "",
+        "description": entry.description if entry else "",
+        "categories": list(entry.categories) if entry else [],
+        "works": list(entry.works) if entry else [],
+        "orderIds": [str(item.id) for item in entry.orders] if entry else [],
+    }
+    formErrors = []
+    if request.method == "POST":
+        formValues = {
+            key: request.form.get(key, "").strip()
+            for key in ("date", "mileage", "description")
+        }
+        formValues.update({
+            key: request.form.getlist(key)
+            for key in ("categories", "works", "orderIds")
+        })
+        try:
+            parsedDate, mileage, categories, works = validateServiceHistoryData(
+                formValues["date"], formValues["mileage"],
+                formValues["categories"], formValues["works"],
+            )
+        except ValueError as error:
+            formErrors.append(str(error))
+
+        availableOrderIds = {str(item.id) for item in availableOrders}
+        if any(value not in availableOrderIds for value in formValues["orderIds"]):
+            formErrors.append(
+                "Bitte nur vorhandene Aufträge dieses Fahrzeugs auswählen."
+            )
+
+        if not formErrors:
+            if entry is None:
+                entry = ServiceHistoryEntry(vehicle=vehicleItem)
+                db.session.add(entry)
+            entry.date = parsedDate
+            entry.mileage = mileage
+            entry.description = formValues["description"]
+            entry.categories = categories
+            entry.works = works
+            entry.orders = [
+                item for item in availableOrders
+                if str(item.id) in formValues["orderIds"]
+            ]
+            db.session.commit()
+            flash("Historieneintrag wurde gespeichert.", "success")
+            return redirect(url_for(
+                "vehicle", vehicleId=vehicleItem.id, _anchor="service-history",
+            ))
+
+    return render_template(
+        "service_history_form.html",
+        vehicle=vehicleItem,
+        entry=entry,
+        formValues=formValues,
+        formErrors=formErrors,
+        availableOrders=availableOrders,
+        serviceCategories=SERVICE_CATEGORIES,
+        standardWorkOptions=STANDARD_WORK_OPTIONS,
+    ), 400 if formErrors else 200
+
+
+@app.route("/vehicle/<int:vehicleId>/history/add", methods=["GET", "POST"])
+@loginRequired
+def addServiceHistory(vehicleId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+    return serviceHistoryForm(vehicleItem)
+
+
+@app.route(
+    "/vehicle/<int:vehicleId>/history/<int:entryId>/edit", methods=["GET", "POST"],
+)
+@loginRequired
+def editServiceHistory(vehicleId, entryId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+    entry = ServiceHistoryEntry.query.filter_by(
+        id=entryId, vehicle_id=vehicleId,
+    ).first_or_404()
+    return serviceHistoryForm(vehicleItem, entry)
+
+
+@app.route(
+    "/vehicle/<int:vehicleId>/history/<int:entryId>/delete", methods=["POST"],
+)
+@loginRequired
+def deleteServiceHistory(vehicleId, entryId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+    entry = ServiceHistoryEntry.query.filter_by(
+        id=entryId, vehicle_id=vehicleId,
+    ).first_or_404()
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Historieneintrag wurde gelöscht.", "success")
+    return redirect(url_for(
+        "vehicle", vehicleId=vehicleId, _anchor="service-history",
+    ))
 
 
 @app.route("/edit_vehicle/<int:vehicleId>", methods=["GET", "POST"])

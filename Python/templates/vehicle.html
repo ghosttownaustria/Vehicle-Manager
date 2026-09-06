@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ vehicle.displayName }} · Vehicle Manager{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='service_history.css') }}">
+{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>
@@ -34,6 +37,8 @@
     </div>
 </div>
 
+{% include "_service_history.html" %}
+
 <div class="grid">
     <section class="card span-4">
         <div class="card-header">
@@ -57,10 +62,10 @@
             <h2>Aufträge</h2>
         </div>
         <div class="tabs">
-            <a class="tab {{ '' if show_closed else 'active' }}" href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
+            <a class="tab {{ '' if show_closed else 'active' }}" href="{{ url_for('vehicle', vehicleId=vehicle.id, category=historyFilters.category, work=historyFilters.work, q=historyFilters.q) }}">
                 Offen ({{ openOrders|length }})
             </a>
-            <a class="tab {{ 'active' if show_closed else '' }}" href="{{ url_for('vehicle', vehicleId=vehicle.id, tab='closed') }}">
+            <a class="tab {{ 'active' if show_closed else '' }}" href="{{ url_for('vehicle', vehicleId=vehicle.id, tab='closed', category=historyFilters.category, work=historyFilters.work, q=historyFilters.q) }}">
                 Geschlossen ({{ closedOrders|length }})
             </a>
         </div>

@@ -12,6 +12,9 @@ from app import (
     Order,
     ROLE_ADMIN,
     ROLE_OPTIONS,
+    SERVICE_CATEGORIES,
+    STANDARD_WORK_OPTIONS,
+    ServiceHistoryEntry,
     User,
     Vehicle,
     WorkTime,
@@ -19,6 +22,7 @@ from app import (
     db,
     initializeDatabase,
     parseRole,
+    validateServiceHistoryData,
 )
 
 
@@ -161,6 +165,32 @@ def listAllDetails():
     for vehicle in Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all():
         print(f"\nFahrzeug {vehicle.id}: {vehicle.displayName}")
         print(f"  Benutzer: {vehicleUserSummary(vehicle)}")
+        categoryLabels = {
+            category["value"]: category["label"]
+            for category in SERVICE_CATEGORIES
+        }
+        workLabels = dict(STANDARD_WORK_OPTIONS)
+        for entry in sorted(
+            vehicle.serviceHistory,
+            key=lambda item: (item.date, item.id),
+            reverse=True,
+        ):
+            categories = ", ".join(
+                categoryLabels.get(value, value) for value in entry.categories
+            )
+            print(
+                f"  Historie {entry.id}: {entry.date:%d.%m.%Y} | "
+                f"{entry.mileage:,} km | {categories}"
+            )
+            if entry.works:
+                print(
+                    "    Arbeiten: "
+                    + ", ".join(workLabels.get(value, value) for value in entry.works)
+                )
+            if entry.description:
+                print(f"    Beschreibung: {entry.description}")
+            for order in entry.orders:
+                print(f"    Auftrag {order.id}: {order.title}")
         for order in vehicle.orders:
             status = "geschlossen" if order.isClosed else "offen"
             print(f"  Auftrag {order.id}: {order.title} [{status}]")
@@ -225,10 +255,12 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                 else None
             ),
             "orders": [],
+            "serviceHistory": [],
         }
 
         for order in vehicle.orders:
             orderData = {
+                "exportId": order.id,
                 "title": order.title,
                 "description": order.description,
                 "date": order.date.isoformat() if order.date else None,
@@ -284,6 +316,21 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                 )
 
             vehicleData["orders"].append(orderData)
+        for entry in sorted(
+            vehicle.serviceHistory,
+            key=lambda item: (item.date, item.id),
+            reverse=True,
+        ):
+            vehicleData["serviceHistory"].append(
+                {
+                    "date": entry.date.isoformat(),
+                    "mileage": entry.mileage,
+                    "description": entry.description or "",
+                    "categories": entry.categories,
+                    "works": entry.works,
+                    "orderIds": sorted(order.id for order in entry.orders),
+                }
+            )
         data.append(vehicleData)
 
     filePath.write_text(
@@ -291,6 +338,60 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
         encoding="utf-8",
     )
     print(f"{len(data)} Fahrzeuge wurden nach {filePath} exportiert.")
+
+
+def parseExportOrderId(value):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, str))
+        or not str(value).isascii()
+        or not str(value).isdecimal()
+        or int(value) <= 0
+    ):
+        raise ValueError("Eine exportierte Auftrags-ID ist ungültig.")
+    return int(value)
+
+
+def importServiceHistory(vehicle, historyData, sourceOrderMap):
+    if not isinstance(historyData, list):
+        raise ValueError("Die Servicehistorie muss eine Liste sein.")
+    for index, entryData in enumerate(historyData, start=1):
+        if not isinstance(entryData, dict):
+            raise ValueError(f"Historien-Eintrag {index} ist kein JSON-Objekt.")
+        date, mileage, categories, works = validateServiceHistoryData(
+            entryData.get("date"),
+            entryData.get("mileage"),
+            entryData.get("categories"),
+            entryData.get("works", []),
+        )
+        description = entryData.get("description", "")
+        if not isinstance(description, str):
+            raise ValueError("Die Beschreibung eines Historien-Eintrags muss Text sein.")
+        orderIds = entryData.get("orderIds", [])
+        if not isinstance(orderIds, list):
+            raise ValueError("Die Auftrags-IDs eines Historien-Eintrags müssen eine Liste sein.")
+        linkedOrders = []
+        for sourceOrderId in orderIds:
+            sourceOrderId = parseExportOrderId(sourceOrderId)
+            order = sourceOrderMap.get(sourceOrderId)
+            if order is None:
+                raise ValueError(
+                    f"Historien-Eintrag {index}: Auftrag {sourceOrderId} "
+                    "fehlt oder gehört zu einem anderen Fahrzeug."
+                )
+            if order not in linkedOrders:
+                linkedOrders.append(order)
+        vehicle.serviceHistory.append(
+            ServiceHistoryEntry(
+                date=date,
+                mileage=mileage,
+                categories=categories,
+                works=works,
+                description=description,
+                orders=linkedOrders,
+            )
+        )
+    return len(historyData)
 
 
 def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
@@ -313,6 +414,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
     vehicleCount = len(data)
     orderCount = 0
     entryCount = 0
+    historyCount = 0
     print(f"Import gestartet: {vehicleCount} Fahrzeuge aus {filePath.name}")
 
     try:
@@ -369,6 +471,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                     if sourceVehicleKey is not None:
                         sourceVehicleMap[sourceVehicleKey] = vehicle
 
+                sourceOrderMap = {}
                 for orderData in vehicleData.get("orders", []):
                     isClosed = parseBoolean(
                         orderData.get(
@@ -396,6 +499,15 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                         vehicle=vehicle,
                     )
                     db.session.add(order)
+                    sourceOrderId = orderData.get("exportId", orderData.get("id"))
+                    if sourceOrderId is not None:
+                        sourceOrderId = parseExportOrderId(sourceOrderId)
+                        if sourceOrderId in sourceOrderMap:
+                            raise ValueError(
+                                f"Die exportierte Auftrags-ID {sourceOrderId} "
+                                "ist für ein Fahrzeug mehrfach vorhanden."
+                            )
+                        sourceOrderMap[sourceOrderId] = order
                     orderCount += 1
                     pendingOrderAttachments.append(
                         (
@@ -444,6 +556,11 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                         )
                         entryCount += 1
 
+                historyCount += importServiceHistory(
+                    vehicle,
+                    vehicleData.get("serviceHistory", []),
+                    sourceOrderMap,
+                )
                 print(
                     f"  [{index}/{vehicleCount}] "
                     f"{vehicle.displayName or 'Unbenanntes Fahrzeug'}"
@@ -477,7 +594,8 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
 
     print(
         f"Import abgeschlossen: {vehicleCount} Fahrzeuge, "
-        f"{orderCount} Aufträge und {entryCount} Buchungen."
+        f"{orderCount} Aufträge, {entryCount} Buchungen "
+        f"und {historyCount} Historien-Einträge."
     )
     return True
 

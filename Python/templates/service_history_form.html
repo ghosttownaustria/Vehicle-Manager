@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Historieneintrag bearbeiten' if entry else 'Neuer Historieneintrag' }} · Vehicle Manager{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='service_history.css') }}">
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ 'Historieneintrag bearbeiten' if entry else 'Neuer Historieneintrag' }}</h1>
+        <p>{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }} · {{ vehicle.licensePlate or 'Kein Kennzeichen' }}</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}">Zur Servicehistorie</a>
+</div>
+
+{% if formErrors %}
+    <div class="alert alert-danger" role="alert">
+        <strong>Bitte prüfe deine Angaben:</strong>
+        <ul class="history-form-errors">{% for error in formErrors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+{% endif %}
+
+<div class="card">
+    <form method="post" class="history-form">
+        <div class="grid">
+            <div class="field span-6">
+                <label for="history-date">Datum *</label>
+                <input id="history-date" type="date" name="date" value="{{ formValues.date }}" required>
+            </div>
+            <div class="field span-6">
+                <label for="history-mileage">Kilometerstand (km) *</label>
+                <input id="history-mileage" type="number" name="mileage" min="0" max="2147483647" step="1" inputmode="numeric" value="{{ formValues.mileage }}" placeholder="z. B. 125000" required>
+            </div>
+        </div>
+
+        <fieldset class="history-fieldset" aria-describedby="history-categories-hint">
+            <legend>Kategorien *</legend>
+            <p class="hint" id="history-categories-hint">Mindestens eine Kategorie auswählen. Mehrfachauswahl möglich, z. B. Service und Reparatur.</p>
+            <div class="checkbox-list">
+                {% for category in serviceCategories %}
+                    <label class="checkbox-item history-choice">
+                        <input type="checkbox" name="categories" value="{{ category.value }}" {{ 'checked' if category.value in formValues.categories else '' }}>
+                        <span class="history-choice-symbol history-category-{{ category.value }}" aria-hidden="true">{{ category.symbol }}</span>
+                        <span>{{ category.label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="history-fieldset" aria-describedby="history-works-hint">
+            <legend>Durchgeführte Standardarbeiten</legend>
+            <p class="hint" id="history-works-hint">Alle durchgeführten Arbeiten auswählen. Diese sind später einzeln filterbar.</p>
+            <div class="checkbox-list">
+                {% for value, label in standardWorkOptions %}
+                    <label class="checkbox-item history-choice">
+                        <input type="checkbox" name="works" value="{{ value }}" {{ 'checked' if value in formValues.works else '' }}>
+                        <span>{{ label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <div class="field">
+            <label for="history-description">Beschreibung</label>
+            <textarea id="history-description" name="description" rows="5" placeholder="Details zu den Arbeiten, verwendeten Teilen oder Auffälligkeiten …">{{ formValues.description }}</textarea>
+            <p class="hint">Die Beschreibung kann später über die Suche in der Servicehistorie gefunden werden.</p>
+        </div>
+
+        <fieldset class="history-fieldset" aria-describedby="history-orders-hint">
+            <legend>Aufträge verknüpfen</legend>
+            <p class="hint" id="history-orders-hint">Du kannst mehrere offene oder geschlossene Aufträge dieses Fahrzeugs auswählen.</p>
+            {% if availableOrders %}
+                <div class="checkbox-list history-order-choices">
+                    {% for order in availableOrders %}
+                        <label class="checkbox-item history-choice">
+                            <input type="checkbox" name="orderIds" value="{{ order.id }}" {{ 'checked' if order.id|string in formValues.orderIds else '' }}>
+                            <span class="history-order-choice-label">
+                                <span>{{ order.title }}</span>
+                                <span class="list-meta">{{ order.date|dateTime }}</span>
+                            </span>
+                            <span class="badge {{ 'badge-closed' if order.isClosed else 'badge-open' }}">{{ 'Geschlossen' if order.isClosed else 'Offen' }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted">Für dieses Fahrzeug sind noch keine Aufträge vorhanden. Du kannst den Eintrag jetzt speichern und Aufträge später verknüpfen.</p>
+            {% endif %}
+        </fieldset>
+
+        <p class="hint">* Pflichtangaben</p>
+        <div class="actions history-form-actions">
+            <button class="btn btn-primary" type="submit">{{ 'Änderungen speichern' if entry else 'Eintrag speichern' }}</button>
+            <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}">Abbrechen</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

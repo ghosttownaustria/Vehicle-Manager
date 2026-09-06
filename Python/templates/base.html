@@ -345,6 +345,7 @@
             .actions .btn { flex: 1; }
         }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body>
 {% if session.get("userId") %}
@@ -353,7 +354,7 @@
         <a class="brand" href="{{ url_for('index') }}">Vehicle Manager</a>
         <nav class="nav">
             <a href="{{ url_for('index') }}"
-               class="{{ 'active' if request.endpoint in ['index', 'vehicle', 'addVehicle', 'editVehicle'] else '' }}">
+               class="{{ 'active' if request.endpoint in ['index', 'vehicle', 'addVehicle', 'editVehicle', 'addServiceHistory', 'editServiceHistory'] else '' }}">
                 Fahrzeuge
             </a>
             <a href="{{ url_for('orders') }}"

@@ -1,34 +1,31 @@
 {% extends "base.html" %}
+{% block title %}Auftrag anlegen · Vehicle Manager{% endblock %}
 {% block content %}
-
-<h2>Add Order for {{ vehicle.displayName }}</h2>
-
-<a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
-← Back to Vehicle
-</a>
-
-<hr>
-
-<form method="post">
-
+<div class="page-header">
     <div>
-        <label>Title</label><br>
-        <input type="text" name="title" required>
+        <h1>Auftrag anlegen</h1>
+        <p>Für {{ vehicleName(vehicle) }}</p>
     </div>
-
-    <br>
-
-    <div>
-        <label>Description</label><br>
-        <textarea name="description"></textarea>
-    </div>
-
-    <br>
-
-    <button type="submit">
-        Create Order
-    </button>
-
-</form>
-
+</div>
+<div class="card">
+    <form method="post">
+        <div class="field">
+            <label for="title">Titel</label>
+            <input id="title" type="text" name="title" required autofocus>
+        </div>
+        <div class="field">
+            <label for="description">Beschreibung</label>
+            <textarea id="description" name="description"></textarea>
+        </div>
+        <div class="field">
+            <label for="date">Auftragsdatum</label>
+            <input id="date" type="datetime-local" name="date">
+            <div class="hint">Leer lassen, um den aktuellen Zeitpunkt zu verwenden.</div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Auftrag anlegen</button>
+            <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">Abbrechen</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

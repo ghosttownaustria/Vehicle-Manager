@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Einnahme bearbeiten · Vehicle Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Einnahme bearbeiten</h1>
+        <p>{{ income.order.title }}</p>
+    </div>
+</div>
+<div class="card">
+    <form method="post">
+        <div class="field">
+            <label for="description">Beschreibung</label>
+            <input id="description" type="text" name="description" value="{{ income.description }}" required>
+        </div>
+        <div class="grid">
+            <div class="field span-6">
+                <label for="amount">Betrag (€)</label>
+                <input id="amount" type="number" step="0.01" min="0" name="amount" value="{{ income.amount }}" required>
+            </div>
+            {% set personFieldId = 'person' %}
+            {% set personLabel = 'Erhalten von' %}
+            {% set selectedPerson = income.person %}
+            {% set personFieldClass = 'field span-6' %}
+            {% include "_person_select.html" %}
+        </div>
+        <div class="field">
+            <label for="date">Datum und Uhrzeit</label>
+            <input id="date" type="datetime-local" name="date"
+                   value="{{ income.date.strftime('%Y-%m-%dT%H:%M') if income.date else '' }}">
+        </div>
+        <div class="actions">
+            <button class="btn btn-primary" type="submit">Änderungen speichern</button>
+            <a class="btn btn-secondary" href="{{ url_for('order', orderId=income.order.id) }}">Abbrechen</a>
+        </div>
+    </form>
+</div>
+<div class="card">
+    <h2>Einnahme löschen</h2>
+    <form method="post" action="{{ url_for('deleteIncome', incomeId=income.id) }}"
+          onsubmit="return confirm('Diese Einnahme endgültig löschen?')">
+        <button class="btn btn-danger" type="submit">Einnahme löschen</button>
+    </form>
+</div>
+{% endblock %}

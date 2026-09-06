@@ -1,243 +1,689 @@
+import argparse
 import json
-from app import app, db, User, Vehicle, Order, Cost, WorkTime, Income
-from werkzeug.security import generate_password_hash
 from datetime import datetime
+from pathlib import Path
 
-def parseDate(dateValue):
-    if dateValue is None:
-        return datetime.utcnow()
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from werkzeug.security import generate_password_hash
 
-    # Already datetime
+from app import (
+    Cost,
+    Income,
+    Order,
+    ROLE_ADMIN,
+    ROLE_OPTIONS,
+    SERVICE_CATEGORIES,
+    STANDARD_WORK_OPTIONS,
+    ServiceHistoryEntry,
+    User,
+    Vehicle,
+    WorkTime,
+    app,
+    db,
+    initializeDatabase,
+    parseRole,
+    validateServiceHistoryData,
+)
+
+
+DEFAULT_EXPORT_FILE = Path(__file__).with_name("export.json")
+
+
+def parseDate(dateValue, fallback=None):
+    fallback = fallback or datetime.now()
+    if dateValue is None or dateValue == "":
+        return fallback
     if isinstance(dateValue, datetime):
         return dateValue
-
-    # String → datetime
     if isinstance(dateValue, str):
+        normalized = dateValue.strip()
+        if not normalized or normalized.lower() == "none":
+            return fallback
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
         try:
-            return datetime.fromisoformat(dateValue)
-        except:
-            return datetime.utcnow()
+            parsed = datetime.fromisoformat(normalized)
+            return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+        except ValueError:
+            return fallback
+    return fallback
 
-    # Fallback
-    return datetime.utcnow()
+
+def parseBoolean(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "ja", "closed"}
+    return bool(value)
+
+
+def parseOptionalDate(dateValue):
+    if dateValue is None or dateValue == "":
+        return None
+    return parseDate(dateValue)
+
 
 def clearScreen():
-    print("\n" * 50)
+    print("\n" * 3)
+
 
 def wait():
-    input("\nPress Enter to continue...")
+    input("\nEnter drücken, um zum Menü zurückzukehren...")
+
+
+def sortedUserEmails(users):
+    return sorted(email for email in (user.email for user in users) if email)
+
+
+def sortedUserNames(users):
+    return sorted(user.displayName for user in users if user.displayName)
+
+
+def vehicleUserSummary(vehicle):
+    return ", ".join(sortedUserNames(vehicle.assignedUsers)) or "keine Benutzer"
+
 
 def listUsers():
-    users = User.query.all()
+    print("\n=== BENUTZER ===")
+    for user in User.query.order_by(User.name, User.email).all():
+        print(f"{user.id} - {user.displayName} ({user.email}) [{user.roleLabel}]")
 
-    print("\n=== USERS ===")
-    for u in users:
-        print(f"{u.id} - {u.email}")
+
+def chooseRole(defaultRole="customer"):
+    print("Rollen:")
+    for value, label in ROLE_OPTIONS:
+        marker = " *" if value == defaultRole else ""
+        print(f"  {value} - {label}{marker}")
+    return parseRole(input(f"Rolle [{defaultRole}]: ").strip() or defaultRole)
+
 
 def addUser():
-    print("\n=== ADD USER ===")
-    email = input("Email: ")
-    password = input("Password: ")
-
-    user = User(
-        email=email,
-        passwordHash=generate_password_hash(password)
+    print("\n=== BENUTZER ANLEGEN ===")
+    name = input("Name: ").strip()
+    email = input("E-Mail: ").strip()
+    password = input("Passwort: ")
+    if not email or not password:
+        print("E-Mail und Passwort duerfen nicht leer sein.")
+        return
+    if User.query.filter_by(email=email).first():
+        print("Diese E-Mail-Adresse ist bereits vergeben.")
+        return
+    role = chooseRole()
+    db.session.add(
+        User(
+            name=name or email,
+            email=email,
+            passwordHash=generate_password_hash(password),
+            isAdmin=role == ROLE_ADMIN,
+            role=role,
+        )
     )
-
-    db.session.add(user)
     db.session.commit()
+    print("Benutzer wurde angelegt.")
 
-    print("User created.")
 
 def deleteUser():
     listUsers()
-    userId = int(input("\nUser ID to delete: "))
+    try:
+        userId = int(input("\nZu löschende Benutzer-ID: "))
+    except ValueError:
+        print("Ungültige ID.")
+        return
 
-    user = User.query.get(userId)
+    user = db.session.get(User, userId)
+    if not user:
+        print("Benutzer wurde nicht gefunden.")
+        return
 
-    if user:
-        db.session.delete(user)
-        db.session.commit()
-        print("User deleted.")
+    db.session.delete(user)
+    db.session.commit()
+    print("Benutzer wurde gelöscht.")
+
 
 def listVehicles():
-    vehicles = Vehicle.query.all()
-
-    print("\n=== VEHICLES ===")
-    for v in vehicles:
-        print(f"{v.id} - {v.brand} {v.model} ({v.vin})")
-
-def listOrders():
-    orders = Order.query.all()
-
-    print("\n=== ORDERS ===")
-    for o in orders:
-        print(f"{o.id} - {o.title} (Vehicle {o.vehicle_id})")
-
-def listAllDetails():
-    print("\n=== FULL DATABASE ===")
-
-    for v in Vehicle.query.all():
-        print(f"\nVehicle {v.id}: {v.brand} {v.model}")
-
-        for o in v.orders:
-            print(f"  Order {o.id}: {o.title}")
-
-            for c in o.costs:
-                print(f"    Cost: {c.description} - {c.amount}€")
-
-            for t in o.times:
-                print(f"    Time: {t.description} - {t.hours}h")
-
-            for i in o.incomes:
-                print(f"    Income: {i.description} - {i.amount}€")
-
-def resetDatabase():
-    confirm = input("Type YES to reset database: ")
-
-    if confirm == "YES":
-        db.drop_all()
-        db.create_all()
-        print("Database reset complete.")
-
-def exportJson():
-    data = []
-
-    for v in Vehicle.query.all():
-        vehicleData = {
-            "brand": v.brand,
-            "model": v.model,
-            "vin": v.vin,
-            "orders": []
-        }
-
-        for o in v.orders:
-            orderData = {
-                "title": o.title,
-                "description": o.description,
-                "costs": [],
-                "times": [],
-                "incomes": []
-            }
-
-            for c in o.costs:
-                orderData["costs"].append({
-                    "description": c.description,
-                    "amount": c.amount,
-                    "person": c.person,
-                    "date": str(c.date)
-                })
-
-            for t in o.times:
-                orderData["times"].append({
-                    "description": t.description,
-                    "hours": t.hours,
-                    "person": t.person,
-                    "date": str(t.date)
-                })
-
-            for i in o.incomes:
-                orderData["incomes"].append({
-                    "description": i.description,
-                    "amount": i.amount,
-                    "person": i.person,
-                    "date": str(i.date)
-                })
-
-            vehicleData["orders"].append(orderData)
-
-        data.append(vehicleData)
-
-    with open("export.json", "w") as f:
-        json.dump(data, f, indent=4)
-
-    print("Exported to export.json")
-
-def importJson():
-    with open("export.json", "r") as f:
-        data = json.load(f)
-
-    for v in data:
-        vehicle = Vehicle(
-            brand=v["brand"],
-            model=v["model"],
-            vin=v["vin"]
+    print("\n=== FAHRZEUGE ===")
+    for vehicle in Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all():
+        print(
+            f"{vehicle.id} - {vehicle.displayName} "
+            f"({vehicle.vin or 'keine FIN/VIN'}) | "
+            f"Benutzer: {vehicleUserSummary(vehicle)}"
         )
 
-        db.session.add(vehicle)
-        db.session.flush()
 
-        for o in v["orders"]:
-            order = Order(
-                title=o["title"],
-                description=o["description"],
-                vehicle=vehicle
+def listOrders():
+    print("\n=== AUFTRÄGE ===")
+    for order in Order.query.order_by(Order.date.desc()).all():
+        status = "geschlossen" if order.isClosed else "offen"
+        print(
+            f"{order.id} - {order.title} "
+            f"(Fahrzeug {order.vehicle_id}, {status})"
+        )
+
+
+def listAllDetails():
+    print("\n=== DATENBANKÜBERSICHT ===")
+    for vehicle in Vehicle.query.order_by(Vehicle.brand, Vehicle.model).all():
+        print(f"\nFahrzeug {vehicle.id}: {vehicle.displayName}")
+        print(f"  Benutzer: {vehicleUserSummary(vehicle)}")
+        categoryLabels = {
+            category["value"]: category["label"]
+            for category in SERVICE_CATEGORIES
+        }
+        workLabels = dict(STANDARD_WORK_OPTIONS)
+        for entry in sorted(
+            vehicle.serviceHistory,
+            key=lambda item: (item.date, item.id),
+            reverse=True,
+        ):
+            categories = ", ".join(
+                categoryLabels.get(value, value) for value in entry.categories
             )
+            print(
+                f"  Historie {entry.id}: {entry.date:%d.%m.%Y} | "
+                f"{entry.mileage:,} km | {categories}"
+            )
+            if entry.works:
+                print(
+                    "    Arbeiten: "
+                    + ", ".join(workLabels.get(value, value) for value in entry.works)
+                )
+            if entry.description:
+                print(f"    Beschreibung: {entry.description}")
+            for order in entry.orders:
+                print(f"    Auftrag {order.id}: {order.title}")
+        for order in vehicle.orders:
+            status = "geschlossen" if order.isClosed else "offen"
+            print(f"  Auftrag {order.id}: {order.title} [{status}]")
+            for attachedVehicle in order.attachedVehicles:
+                print(
+                    f"    Angehängtes Fahrzeug: "
+                    f"{attachedVehicle.id} - {attachedVehicle.displayName}"
+                )
+            for cost in order.costs:
+                print(
+                    f"    Ausgabe: {cost.description} - "
+                    f"EK {(cost.amount or 0):.2f} €, "
+                    f"VK {(cost.saleAmount or 0):.2f} €"
+                )
+            for workTime in order.times:
+                print(
+                    f"    Arbeitszeit: {workTime.description} - "
+                    f"{workTime.hours:.2f} h"
+                )
+            for income in order.incomes:
+                print(
+                    f"    Einnahme: {income.description} - "
+                    f"{income.amount:.2f} €"
+                )
 
-            db.session.add(order)
+
+def resetDatabase():
+    confirm = input(
+        "Zum vollständigen Löschen der Datenbank RESET eingeben: "
+    ).strip()
+    if confirm != "RESET":
+        print("Abgebrochen.")
+        return
+
+    db.drop_all()
+    initializeDatabase()
+    print("Datenbank wurde zurückgesetzt.")
+
+
+def exportJson(filePath=DEFAULT_EXPORT_FILE):
+    filePath = Path(filePath)
+    data = []
+
+    for vehicle in Vehicle.query.order_by(Vehicle.id).all():
+        vehicleData = {
+            "exportId": vehicle.id,
+            "brand": vehicle.brand,
+            "model": vehicle.model,
+            "vin": vehicle.vin,
+            "firstRegistration": vehicle.firstRegistration,
+            "engineOil": vehicle.engineOil,
+            "gearboxOil": vehicle.gearboxOil,
+            "diffOil": vehicle.diffOil,
+            "coolant": vehicle.coolant,
+            "fuel": vehicle.fuel,
+            "engineCode": vehicle.engineCode,
+            "licensePlate": vehicle.licensePlate,
+            "assignedUserEmails": sortedUserEmails(vehicle.assignedUsers),
+            "lastOpenedAt": (
+                vehicle.lastOpenedAt.isoformat()
+                if vehicle.lastOpenedAt
+                else None
+            ),
+            "orders": [],
+            "serviceHistory": [],
+        }
+
+        for order in vehicle.orders:
+            orderData = {
+                "exportId": order.id,
+                "title": order.title,
+                "description": order.description,
+                "date": order.date.isoformat() if order.date else None,
+                "isClosed": bool(order.isClosed),
+                "closedAt": (
+                    order.closedAt.isoformat() if order.closedAt else None
+                ),
+                "lastOpenedAt": (
+                    order.lastOpenedAt.isoformat()
+                    if order.lastOpenedAt
+                    else None
+                ),
+                "attachedVehicleIds": [
+                    attachedVehicle.id
+                    for attachedVehicle in order.attachedVehicles
+                ],
+                "costs": [],
+                "times": [],
+                "incomes": [],
+            }
+
+            for cost in order.costs:
+                orderData["costs"].append(
+                    {
+                        "description": cost.description,
+                        "amount": cost.amount,
+                        "saleAmount": cost.saleAmount,
+                        "person": cost.person,
+                        "date": cost.date.isoformat() if cost.date else None,
+                    }
+                )
+
+            for workTime in order.times:
+                orderData["times"].append(
+                    {
+                        "description": workTime.description,
+                        "hours": workTime.hours,
+                        "person": workTime.person,
+                        "date": (
+                            workTime.date.isoformat() if workTime.date else None
+                        ),
+                    }
+                )
+
+            for income in order.incomes:
+                orderData["incomes"].append(
+                    {
+                        "description": income.description,
+                        "amount": income.amount,
+                        "person": income.person,
+                        "date": income.date.isoformat() if income.date else None,
+                    }
+                )
+
+            vehicleData["orders"].append(orderData)
+        for entry in sorted(
+            vehicle.serviceHistory,
+            key=lambda item: (item.date, item.id),
+            reverse=True,
+        ):
+            vehicleData["serviceHistory"].append(
+                {
+                    "date": entry.date.isoformat(),
+                    "mileage": entry.mileage,
+                    "description": entry.description or "",
+                    "categories": entry.categories,
+                    "works": entry.works,
+                    "orderIds": sorted(order.id for order in entry.orders),
+                }
+            )
+        data.append(vehicleData)
+
+    filePath.write_text(
+        json.dumps(data, indent=4, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    print(f"{len(data)} Fahrzeuge wurden nach {filePath} exportiert.")
+
+
+def parseExportOrderId(value):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, str))
+        or not str(value).isascii()
+        or not str(value).isdecimal()
+        or int(value) <= 0
+    ):
+        raise ValueError("Eine exportierte Auftrags-ID ist ungültig.")
+    return int(value)
+
+
+def importServiceHistory(vehicle, historyData, sourceOrderMap):
+    if not isinstance(historyData, list):
+        raise ValueError("Die Servicehistorie muss eine Liste sein.")
+    for index, entryData in enumerate(historyData, start=1):
+        if not isinstance(entryData, dict):
+            raise ValueError(f"Historien-Eintrag {index} ist kein JSON-Objekt.")
+        date, mileage, categories, works = validateServiceHistoryData(
+            entryData.get("date"),
+            entryData.get("mileage"),
+            entryData.get("categories"),
+            entryData.get("works", []),
+        )
+        description = entryData.get("description", "")
+        if not isinstance(description, str):
+            raise ValueError("Die Beschreibung eines Historien-Eintrags muss Text sein.")
+        orderIds = entryData.get("orderIds", [])
+        if not isinstance(orderIds, list):
+            raise ValueError("Die Auftrags-IDs eines Historien-Eintrags müssen eine Liste sein.")
+        linkedOrders = []
+        for sourceOrderId in orderIds:
+            sourceOrderId = parseExportOrderId(sourceOrderId)
+            order = sourceOrderMap.get(sourceOrderId)
+            if order is None:
+                raise ValueError(
+                    f"Historien-Eintrag {index}: Auftrag {sourceOrderId} "
+                    "fehlt oder gehört zu einem anderen Fahrzeug."
+                )
+            if order not in linkedOrders:
+                linkedOrders.append(order)
+        vehicle.serviceHistory.append(
+            ServiceHistoryEntry(
+                date=date,
+                mileage=mileage,
+                categories=categories,
+                works=works,
+                description=description,
+                orders=linkedOrders,
+            )
+        )
+    return len(historyData)
+
+
+def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
+    """Import old and new exports without requiring new status fields."""
+    filePath = Path(filePath)
+    if not filePath.exists():
+        print(f"Datei nicht gefunden: {filePath}")
+        return False
+
+    try:
+        data = json.loads(filePath.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"Importdatei konnte nicht gelesen werden: {error}")
+        return False
+
+    if not isinstance(data, list):
+        print("Ungültiges Format: Die oberste JSON-Ebene muss eine Liste sein.")
+        return False
+
+    vehicleCount = len(data)
+    orderCount = 0
+    entryCount = 0
+    historyCount = 0
+    print(f"Import gestartet: {vehicleCount} Fahrzeuge aus {filePath.name}")
+
+    try:
+        if replaceExisting:
+            print("Vorhandene Fahrzeuge und Aufträge werden entfernt...")
+            for vehicle in Vehicle.query.all():
+                db.session.delete(vehicle)
             db.session.flush()
 
-            for c in o["costs"]:
-                db.session.add(Cost(
-                    description=c["description"],
-                    amount=c["amount"],
-                    person=c["person"],
-                    date=parseDate(c.get("date")),
-                    order=order
-                ))
+        # Relationship assignment sets all foreign keys during the final flush.
+        # Avoiding a flush for every single order keeps large old exports fast.
+        availableUsers = {user.email: user for user in User.query.all()}
+        sourceVehicleMap = {}
+        pendingOrderAttachments = []
+        with db.session.no_autoflush:
+            for index, vehicleData in enumerate(data, start=1):
+                if not isinstance(vehicleData, dict):
+                    raise ValueError(
+                        f"Fahrzeug-Eintrag {index} ist kein JSON-Objekt."
+                    )
 
-            for t in o["times"]:
-                db.session.add(WorkTime(
-                    description=t["description"],
-                    hours=t["hours"],
-                    person=t["person"],
-                    date=parseDate(t.get("date")),
-                    order=order
-                ))
+                vehicle = Vehicle(
+                    brand=vehicleData.get("brand", ""),
+                    model=vehicleData.get("model", ""),
+                    vin=vehicleData.get("vin", ""),
+                    firstRegistration=vehicleData.get("firstRegistration", ""),
+                    engineOil=vehicleData.get("engineOil", ""),
+                    gearboxOil=vehicleData.get("gearboxOil", ""),
+                    diffOil=vehicleData.get("diffOil", ""),
+                    coolant=vehicleData.get("coolant", ""),
+                    fuel=vehicleData.get("fuel", ""),
+                    engineCode=vehicleData.get("engineCode", ""),
+                    licensePlate=vehicleData.get("licensePlate", ""),
+                    lastOpenedAt=parseOptionalDate(
+                        vehicleData.get("lastOpenedAt")
+                    ),
+                )
+                assignedUserEmails = vehicleData.get(
+                    "assignedUserEmails",
+                    vehicleData.get("assignedUsers", []),
+                )
+                if isinstance(assignedUserEmails, list):
+                    vehicle.assignedUsers = [
+                        availableUsers[email]
+                        for email in assignedUserEmails
+                        if isinstance(email, str) and email in availableUsers
+                    ]
+                db.session.add(vehicle)
+                for sourceVehicleKey in {
+                    vehicleData.get("exportId"),
+                    vehicleData.get("id"),
+                    index,
+                }:
+                    if sourceVehicleKey is not None:
+                        sourceVehicleMap[sourceVehicleKey] = vehicle
 
-            for i in o["incomes"]:
-                db.session.add(Income(
-                    description=i["description"],
-                    amount=i["amount"],
-                    person=i["person"],
-                    date=parseDate(i.get("date")),
-                    order=order
-                ))
+                sourceOrderMap = {}
+                for orderData in vehicleData.get("orders", []):
+                    isClosed = parseBoolean(
+                        orderData.get(
+                            "isClosed",
+                            orderData.get("closed", False),
+                        )
+                    )
+                    orderDate = parseDate(orderData.get("date"))
+                    order = Order(
+                        title=orderData.get("title", ""),
+                        description=orderData.get("description", ""),
+                        date=orderDate,
+                        isClosed=isClosed,
+                        closedAt=(
+                            parseDate(
+                                orderData.get("closedAt"),
+                                fallback=orderDate,
+                            )
+                            if isClosed
+                            else None
+                        ),
+                        lastOpenedAt=parseOptionalDate(
+                            orderData.get("lastOpenedAt")
+                        ),
+                        vehicle=vehicle,
+                    )
+                    db.session.add(order)
+                    sourceOrderId = orderData.get("exportId", orderData.get("id"))
+                    if sourceOrderId is not None:
+                        sourceOrderId = parseExportOrderId(sourceOrderId)
+                        if sourceOrderId in sourceOrderMap:
+                            raise ValueError(
+                                f"Die exportierte Auftrags-ID {sourceOrderId} "
+                                "ist für ein Fahrzeug mehrfach vorhanden."
+                            )
+                        sourceOrderMap[sourceOrderId] = order
+                    orderCount += 1
+                    pendingOrderAttachments.append(
+                        (
+                            order,
+                            orderData.get("attachedVehicleIds", []),
+                        )
+                    )
 
-    db.session.commit()
-    print("Import complete.")
+                    for costData in orderData.get("costs", []):
+                        order.costs.append(
+                            Cost(
+                                description=costData.get("description", ""),
+                                amount=float(costData.get("amount", 0) or 0),
+                                saleAmount=float(
+                                    costData.get(
+                                        "saleAmount",
+                                        costData.get("sale_amount", 0),
+                                    )
+                                    or 0
+                                ),
+                                person=costData.get("person", ""),
+                                date=parseDate(costData.get("date")),
+                            )
+                        )
+                        entryCount += 1
+
+                    for timeData in orderData.get("times", []):
+                        order.times.append(
+                            WorkTime(
+                                description=timeData.get("description", ""),
+                                hours=float(timeData.get("hours", 0) or 0),
+                                person=timeData.get("person", ""),
+                                date=parseDate(timeData.get("date")),
+                            )
+                        )
+                        entryCount += 1
+
+                    for incomeData in orderData.get("incomes", []):
+                        order.incomes.append(
+                            Income(
+                                description=incomeData.get("description", ""),
+                                amount=float(incomeData.get("amount", 0) or 0),
+                                person=incomeData.get("person", ""),
+                                date=parseDate(incomeData.get("date")),
+                            )
+                        )
+                        entryCount += 1
+
+                historyCount += importServiceHistory(
+                    vehicle,
+                    vehicleData.get("serviceHistory", []),
+                    sourceOrderMap,
+                )
+                print(
+                    f"  [{index}/{vehicleCount}] "
+                    f"{vehicle.displayName or 'Unbenanntes Fahrzeug'}"
+                )
+
+            for order, attachedVehicleIds in pendingOrderAttachments:
+                if not isinstance(attachedVehicleIds, list):
+                    continue
+                for attachedVehicleId in attachedVehicleIds:
+                    attachedVehicle = sourceVehicleMap.get(attachedVehicleId)
+                    if (
+                        attachedVehicle
+                        and attachedVehicle is not order.vehicle
+                        and attachedVehicle not in order.attachedVehicles
+                    ):
+                        order.attachedVehicles.append(attachedVehicle)
+
+        db.session.commit()
+    except OperationalError as error:
+        db.session.rollback()
+        print(
+            "Datenbank ist gesperrt oder nicht erreichbar. Bitte die laufende "
+            "Vehicle-Manager-App kurz beenden und den Import erneut starten."
+        )
+        print(f"Technische Meldung: {error.orig}")
+        return False
+    except (SQLAlchemyError, ValueError, TypeError, KeyError) as error:
+        db.session.rollback()
+        print(f"Import abgebrochen, es wurden keine neuen Daten gespeichert: {error}")
+        return False
+
+    print(
+        f"Import abgeschlossen: {vehicleCount} Fahrzeuge, "
+        f"{orderCount} Aufträge, {entryCount} Buchungen "
+        f"und {historyCount} Historien-Einträge."
+    )
+    return True
+
 
 def menu():
     while True:
         clearScreen()
-
         print("=== DATABASE MANAGER ===\n")
-        print("1 - List Users")
-        print("2 - Add User")
-        print("3 - Delete User")
-        print("4 - List Vehicles")
-        print("5 - List Orders")
-        print("6 - Full Overview")
-        print("7 - Export JSON")
-        print("8 - Import JSON")
-        print("9 - Reset Database")
-        print("0 - Exit")
+        print("1 - Benutzer auflisten")
+        print("2 - Benutzer anlegen")
+        print("3 - Benutzer löschen")
+        print("4 - Fahrzeuge auflisten")
+        print("5 - Aufträge auflisten")
+        print("6 - Vollständige Übersicht")
+        print("7 - JSON exportieren")
+        print("8 - JSON importieren")
+        print("9 - Datenbank zurücksetzen")
+        print("0 - Beenden")
 
-        choice = input("\nSelect: ")
+        choice = input("\nAuswahl: ").strip()
 
-        if choice == "1": listUsers()
-        elif choice == "2": addUser()
-        elif choice == "3": deleteUser()
-        elif choice == "4": listVehicles()
-        elif choice == "5": listOrders()
-        elif choice == "6": listAllDetails()
-        elif choice == "7": exportJson()
-        elif choice == "8": importJson()
-        elif choice == "9": resetDatabase()
-        elif choice == "0": break
+        if choice == "1":
+            listUsers()
+        elif choice == "2":
+            addUser()
+        elif choice == "3":
+            deleteUser()
+        elif choice == "4":
+            listVehicles()
+        elif choice == "5":
+            listOrders()
+        elif choice == "6":
+            listAllDetails()
+        elif choice == "7":
+            path = input(
+                f"Datei [{DEFAULT_EXPORT_FILE}]: "
+            ).strip() or str(DEFAULT_EXPORT_FILE)
+            exportJson(path)
+        elif choice == "8":
+            path = input(
+                f"Importdatei [{DEFAULT_EXPORT_FILE}]: "
+            ).strip() or str(DEFAULT_EXPORT_FILE)
+            replace = (
+                input("Vorhandene Fahrzeuge vorher löschen? [j/N]: ")
+                .strip()
+                .lower()
+                == "j"
+            )
+            importJson(path, replaceExisting=replace)
+        elif choice == "9":
+            resetDatabase()
+        elif choice == "0":
+            break
+        else:
+            print("Ungültige Auswahl.")
 
         wait()
 
+
+def parseArguments():
+    parser = argparse.ArgumentParser(description="Vehicle Manager Datenbank")
+    parser.add_argument(
+        "--import",
+        dest="importFile",
+        metavar="DATEI",
+        help="JSON-Datei importieren und danach beenden",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="Beim Import vorhandene Fahrzeuge ersetzen",
+    )
+    parser.add_argument(
+        "--export",
+        dest="exportFile",
+        metavar="DATEI",
+        help="JSON-Datei exportieren und danach beenden",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    arguments = parseArguments()
     with app.app_context():
-        menu()
+        initializeDatabase()
+        if arguments.importFile:
+            importJson(arguments.importFile, replaceExisting=arguments.replace)
+        elif arguments.exportFile:
+            exportJson(arguments.exportFile)
+        else:
+            menu()

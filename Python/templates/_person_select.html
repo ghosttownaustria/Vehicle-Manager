@@ -1,0 +1,22 @@
+{% set currentPerson = selectedPerson|default('', true) %}
+{% set optionValues = userOptionValues|default([], true) %}
+{% set fieldClass = personFieldClass|default('field', true) %}
+<div class="{{ fieldClass }}">
+    <label for="{{ personFieldId }}">{{ personLabel }}</label>
+    {% if userOptions %}
+        <select id="{{ personFieldId }}" name="person" required>
+            <option value="" {% if not currentPerson %}selected{% endif %}>Benutzer auswählen</option>
+            {% for user in userOptions %}
+                <option value="{{ user.displayName }}" {% if currentPerson == user.displayName or currentPerson == user.email %}selected{% endif %}>
+                    {{ user.displayName }}
+                </option>
+            {% endfor %}
+            {% if currentPerson and currentPerson not in optionValues %}
+                <option value="{{ currentPerson }}" selected>{{ currentPerson }} (bisheriger Wert)</option>
+            {% endif %}
+        </select>
+    {% else %}
+        <input id="{{ personFieldId }}" type="text" name="person" value="{{ currentPerson }}" required>
+        <p class="hint">Lege zuerst einen Benutzer an, um hier auswählen zu können.</p>
+    {% endif %}
+</div>

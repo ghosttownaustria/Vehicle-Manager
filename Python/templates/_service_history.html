@@ -1,0 +1,166 @@
+<section class="card service-history" id="service-history" aria-labelledby="history-heading">
+    <div class="card-header history-header">
+        <div>
+            <h2 id="history-heading">Servicehistorie</h2>
+            <p class="muted history-intro">Wartung, Reparaturen und Reifenwechsel im Kilometerverlauf</p>
+        </div>
+        {% if currentUser.canModifyVehicles %}
+            <a class="btn btn-primary" href="{{ url_for('addServiceHistory', vehicleId=vehicle.id) }}">Neuer Historieneintrag</a>
+        {% endif %}
+    </div>
+
+    <form method="get" action="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}" class="history-filters" role="search" aria-label="Servicehistorie filtern">
+        {% if request.args.get('tab') == 'closed' %}
+            <input type="hidden" name="tab" value="closed">
+        {% endif %}
+        <div class="field">
+            <label for="history-category">Kategorie</label>
+            <select id="history-category" name="category">
+                <option value="">Alle Kategorien</option>
+                {% for category in serviceCategories %}
+                    <option value="{{ category.value }}" {{ 'selected' if historyFilters.category == category.value else '' }}>{{ category.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label for="history-work">Standardarbeit</label>
+            <select id="history-work" name="work">
+                <option value="">Alle Arbeiten</option>
+                {% for value, label in standardWorkOptions %}
+                    <option value="{{ value }}" {{ 'selected' if historyFilters.work == value else '' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field history-search">
+            <label for="history-query">Beschreibung durchsuchen</label>
+            <input id="history-query" type="search" name="q" value="{{ historyFilters.q }}" placeholder="Suchbegriff, z. B. Bremsen">
+        </div>
+        <div class="actions">
+            <button class="btn btn-secondary" type="submit">Filtern</button>
+            {% if historyFilters.category or historyFilters.work or historyFilters.q %}
+                <a class="history-reset" href="{{ url_for('vehicle', vehicleId=vehicle.id, tab='closed' if request.args.get('tab') == 'closed' else none, _anchor='service-history') }}">Zurücksetzen</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <p class="history-count muted" role="status">{{ historyEntries|length }} von {{ historyTotal }} {{ 'Eintrag' if historyTotal == 1 else 'Einträgen' }}</p>
+
+    {% if historyTotal %}
+        <div class="history-chart" data-history-chart hidden>
+            <div class="history-chart-heading">
+                <h3>Kilometerverlauf</h3>
+                <div class="history-chart-summary">
+                    <span class="history-chart-latest" data-history-latest></span>
+                    {% if historyProjection %}
+                        <span class="history-chart-estimate" data-history-estimate>
+                            <span>Geschätzt für heute · {{ historyProjection.date[8:10] }}.{{ historyProjection.date[5:7] }}.{{ historyProjection.date[:4] }}</span>
+                            <strong>ca. {{ '{:,}'.format(historyProjection.mileage).replace(',', '.') }} km</strong>
+                            <span>Ø {{ '{:.1f}'.format(historyProjection.dailyMileage).replace('.', ',') }} km pro Tag</span>
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="history-chart-plot" data-history-plot>
+                <svg data-history-svg role="img" aria-label="Kilometerstand im Zeitverlauf. Die einzelnen Historieneinträge sind als auswählbare Punkte dargestellt."></svg>
+                <div class="history-chart-points" data-history-points role="group" aria-label="Historieneinträge auf der Zeitachse"></div>
+                <div class="history-chart-tooltip" data-history-tooltip role="tooltip" id="history-chart-tooltip" hidden></div>
+            </div>
+            <div class="history-chart-footer">
+                <div class="history-chart-legend" aria-label="Kategorien der Historieneinträge">
+                    {% for category in serviceCategories %}
+                        <span class="history-chart-legend-item"><span class="history-chart-legend-symbol history-category-{{ category.value }}" aria-hidden="true">{{ category.symbol }}</span>{{ category.label }}</span>
+                    {% endfor %}
+                    {% if historyProjection %}
+                        <span class="history-chart-legend-item"><span class="history-chart-projection-key" aria-hidden="true"></span>Schätzung bis heute</span>
+                    {% endif %}
+                </div>
+                <p class="hint history-chart-hint">Für Kurzinfos über einen Punkt fahren. Anklicken oder antippen öffnet alle Details. Filter ändern nur die sichtbaren Punkte; die Kilometerkurve bleibt vollständig.</p>
+            </div>
+        </div>
+        <script type="application/json" data-history-categories>{{ serviceCategories|tojson }}</script>
+        <script type="application/json" data-history-curve>{{ historyCurvePoints|tojson }}</script>
+        <script type="application/json" data-history-projection>{{ historyProjection|tojson }}</script>
+        {% if not historyEntries %}
+            <p class="empty history-no-results">Keine Einträge für diese Filter gefunden. Die Kilometerkurve bleibt sichtbar.</p>
+        {% endif %}
+        <div class="history-fallback" data-history-fallback>
+            {% for entry in historyEntries %}
+                <details class="history-fallback-entry" id="history-entry-{{ entry.id }}" data-history-entry data-id="{{ entry.id }}" data-date="{{ entry.date.isoformat() }}" data-mileage="{{ entry.mileage }}" data-categories='{{ entry.categories|tojson }}'>
+                    <summary>
+                        <time datetime="{{ entry.date.isoformat() }}">{{ entry.date.strftime('%d.%m.%Y') }}</time>
+                        <span class="history-mileage">· {{ '{:,}'.format(entry.mileage).replace(',', '.') }} km</span>
+                        {% for category in serviceCategories %}
+                            {% if category.value in entry.categories %}
+                                <span class="badge history-category-{{ category.value }}">{{ category.label }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </summary>
+                    <article class="history-entry" aria-labelledby="history-entry-heading-{{ entry.id }}">
+                        <div class="history-entry-header">
+                            <h3 id="history-entry-heading-{{ entry.id }}">
+                                <time datetime="{{ entry.date.isoformat() }}">{{ entry.date.strftime('%d.%m.%Y') }}</time>
+                                <span class="history-mileage">{{ '{:,}'.format(entry.mileage).replace(',', '.') }} km</span>
+                            </h3>
+                            {% if currentUser.canModifyVehicles %}
+                                <div class="actions history-entry-actions">
+                                    <a class="btn btn-secondary btn-sm" href="{{ url_for('editServiceHistory', vehicleId=vehicle.id, entryId=entry.id) }}" aria-label="Eintrag vom {{ entry.date.strftime('%d.%m.%Y') }} bearbeiten">Bearbeiten</a>
+                                    <form method="post" action="{{ url_for('deleteServiceHistory', vehicleId=vehicle.id, entryId=entry.id) }}" onsubmit="return confirm('Diesen Historieneintrag löschen? Die verknüpften Aufträge bleiben erhalten.');">
+                                        <button class="btn btn-secondary btn-sm history-delete" type="submit" aria-label="Eintrag vom {{ entry.date.strftime('%d.%m.%Y') }} löschen">Löschen</button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="history-tags" aria-label="Kategorien">
+                            {% for category in serviceCategories %}
+                                {% if category.value in entry.categories %}
+                                    <span class="badge history-category-{{ category.value }}"><span aria-hidden="true">{{ category.symbol }}</span> {{ category.label }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% if entry.description %}
+                            <p class="history-description">{{ entry.description }}</p>
+                        {% endif %}
+                        {% if entry.works %}
+                            <div class="history-work-section">
+                                <h4>Durchgeführte Arbeiten</h4>
+                                <ul class="history-tags history-work-list">
+                                    {% for value, label in standardWorkOptions %}
+                                        {% if value in entry.works %}
+                                            <li class="badge history-work">{{ label }}</li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                        {% set linkedOrders = historyOrderLinks.get(entry.id, []) %}
+                        {% if linkedOrders %}
+                            <div class="history-order-section">
+                                <h4>Verknüpfte Aufträge ({{ linkedOrders|length }})</h4>
+                                <ul class="history-order-list">
+                                    {% for linkedOrder in linkedOrders %}
+                                        <li>
+                                            <a href="{{ url_for('order', orderId=linkedOrder.id) }}">{{ linkedOrder.title }}</a>
+                                            <span class="badge {{ 'badge-closed' if linkedOrder.isClosed else 'badge-open' }}">{{ 'Geschlossen' if linkedOrder.isClosed else 'Offen' }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </article>
+                </details>
+            {% endfor %}
+        </div>
+        <dialog class="history-dialog" id="history-entry-dialog" aria-label="Historieneintrag">
+            <div class="history-dialog-toolbar">
+                <strong>Historieneintrag</strong>
+                <button type="button" class="btn btn-secondary btn-sm" data-history-close autofocus>Schließen <span aria-hidden="true">×</span></button>
+            </div>
+            <div data-history-dialog-content></div>
+        </dialog>
+    {% else %}
+        <div class="empty">
+            Noch keine Servicehistorie vorhanden.
+            {% if currentUser.canModifyVehicles %}<br>Erfasse den ersten Eintrag mit Datum, Kilometerstand und den durchgeführten Arbeiten.{% endif %}
+        </div>
+    {% endif %}
+</section>

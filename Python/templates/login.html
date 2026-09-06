@@ -1,20 +1,21 @@
 {% extends "base.html" %}
+{% block title %}Anmelden · Vehicle Manager{% endblock %}
 {% block content %}
-
-<h2>Login</h2>
-
-<form method="post">
-    <div class="mb-3">
-        <label>Email</label>
-        <input type="email" name="email" class="form-control" required>
+<div class="login-shell">
+    <div class="card">
+        <h1>Willkommen</h1>
+        <p class="muted">Melde dich an, um Fahrzeuge und Aufträge zu verwalten.</p>
+        <form method="post">
+            <div class="field">
+                <label for="email">E-Mail-Adresse</label>
+                <input id="email" type="email" name="email" autocomplete="username" required autofocus>
+            </div>
+            <div class="field">
+                <label for="password">Passwort</label>
+                <input id="password" type="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button class="btn btn-primary" style="width: 100%">Anmelden</button>
+        </form>
     </div>
-
-    <div class="mb-3">
-        <label>Password</label>
-        <input type="password" name="password" class="form-control" required>
-    </div>
-
-    <button class="btn btn-primary">Login</button>
-</form>
-
+</div>
 {% endblock %}

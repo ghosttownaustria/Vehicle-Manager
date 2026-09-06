@@ -1,0 +1,16 @@
+{% macro vehicleName(vehicle, size='small') -%}
+<span class="vehicle-name vehicle-name-{{ size }}">
+    <span class="vehicle-logo" aria-hidden="true">
+        <svg class="vehicle-logo-fallback" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <path d="m7 13 3-6h12l3 6M5 14l2-1h18l2 1v10H5zM5 19h22M9 24v3m14-3v3" />
+            <path d="M9 16h2m10 0h2" />
+        </svg>
+        {% if vehicle.brandLogoUrl %}
+            <img src="{{ vehicle.brandLogoUrl }}" alt="" width="44" height="44"
+                 decoding="async" referrerpolicy="no-referrer" style="opacity: 0"
+                 onload="this.style.opacity='1'" onerror="this.style.opacity='0'">
+        {% endif %}
+    </span>
+    <span class="vehicle-name-text">{{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}</span>
+</span>
+{%- endmacro %}

@@ -1,4 +1,4 @@
-from app import app, db, User
+from app import ROLE_ADMIN, ROLE_OPTIONS, User, app, db, parseRole
 from werkzeug.security import generate_password_hash
 import getpass
 import sys
@@ -21,7 +21,10 @@ def listUsers():
     print("------------------------------")
 
     for user in users:
-        print(f"ID: {user.id} | Email: {user.email}")
+        print(
+            f"ID: {user.id} | Name: {user.displayName} | "
+            f"Email: {user.email} | Role: {user.roleLabel}"
+        )
 
     print()
 
@@ -30,7 +33,12 @@ def createUser():
     print("\nCreate New User")
     print("----------------")
 
+    name = input("Name: ").strip()
     email = input("Email: ").strip()
+
+    if not email:
+        print("Email must not be empty!\n")
+        return
 
     if User.query.filter_by(email=email).first():
         print("User already exists!\n")
@@ -39,15 +47,26 @@ def createUser():
     password = getpass.getpass("Password: ")
     confirmPassword = getpass.getpass("Confirm Password: ")
 
+    if not password:
+        print("Password must not be empty!\n")
+        return
+
     if password != confirmPassword:
         print("Passwords do not match!\n")
         return
 
     hashedPassword = generate_password_hash(password)
+    print("Roles:")
+    for value, label in ROLE_OPTIONS:
+        print(f"  {value} - {label}")
+    role = parseRole(input("Role [customer]: ").strip() or "customer")
 
     newUser = User(
+        name=name or email,
         email=email,
-        passwordHash=hashedPassword
+        passwordHash=hashedPassword,
+        isAdmin=role == ROLE_ADMIN,
+        role=role,
     )
 
     db.session.add(newUser)

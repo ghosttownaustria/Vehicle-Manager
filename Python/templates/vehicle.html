@@ -1,56 +1,124 @@
 {% extends "base.html" %}
+{% block title %}{{ vehicle.displayName }} · Vehicle Manager{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='service_history.css') }}">
+<script src="{{ url_for('static', filename='service_history.js') }}" defer></script>
+{% endblock %}
 {% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ vehicleName(vehicle, 'heading') }}</h1>
+        <p>{{ vehicle.licensePlate or 'Kein Kennzeichen' }} · FIN/VIN: {{ vehicle.vin or '–' }} · Benutzer: {{ vehicle.assignedUsers|userList }}</p>
+    </div>
+    <div class="actions">
+        {% if currentUser.canModifyVehicles %}
+            <a class="btn btn-secondary" href="{{ url_for('printVehicle', vehicleId=vehicle.id) }}">PDF</a>
+            <a class="btn btn-secondary" href="{{ url_for('editVehicle', vehicleId=vehicle.id) }}">Bearbeiten</a>
+            <a class="btn btn-primary" href="{{ url_for('addOrder', vehicleId=vehicle.id) }}">Neuer Auftrag</a>
+        {% endif %}
+    </div>
+</div>
 
-<h2>{{ vehicle.displayName }}</h2>
+<div class="grid" style="margin-bottom: 22px">
+    <div class="stat span-3">
+        <div class="stat-label">Einnahmen</div>
+        <div class="stat-value">{{ totalIncome|currency }} €</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">EK</div>
+        <div class="stat-value">{{ totalCost|currency }} €</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Ergebnis</div>
+        <div class="stat-value {{ 'positive' if result >= 0 else 'negative' }}">{{ result|currency }} €</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Arbeitszeit</div>
+        <div class="stat-value">{{ totalHours|currency }} h</div>
+    </div>
+</div>
 
-<p><strong>VIN:</strong> {{ vehicle.vin }}</p>
+{% include "_service_history.html" %}
 
-<a href="{{ url_for('index') }}">← Back to Overview</a> |
-<a href="{{ url_for('editVehicle', vehicleId=vehicle.id) }}">Edit Vehicle</a>
-<a href="{{ url_for('printVehicle', vehicleId=vehicle.id) }}">
-    📄 Download Vehicle Report
-</a>
+<div class="grid">
+    <section class="card span-4">
+        <div class="card-header">
+            <h2>Fahrzeugdaten</h2>
+        </div>
+        <div class="details" style="grid-template-columns: 1fr">
+            <div class="detail"><span class="detail-label">Erstzulassung</span><span class="detail-value">{{ vehicle.firstRegistration or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Motoröl</span><span class="detail-value">{{ vehicle.engineOil or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Getriebeöl</span><span class="detail-value">{{ vehicle.gearboxOil or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Differentialöl</span><span class="detail-value">{{ vehicle.diffOil or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Kühlmittel</span><span class="detail-value">{{ vehicle.coolant or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Kraftstoff</span><span class="detail-value">{{ vehicle.fuel or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Motorkennbuchstabe</span><span class="detail-value">{{ vehicle.engineCode or '–' }}</span></div>
+            <div class="detail"><span class="detail-label">Benutzer</span><span class="detail-value">{{ vehicle.assignedUsers|userList }}</span></div>
+        </div>
+    </section>
 
-<hr>
+    <section class="card span-8">
+        {% set show_closed = request.args.get('tab') == 'closed' %}
+        <div class="card-header">
+            <h2>Aufträge</h2>
+        </div>
+        <div class="tabs">
+            <a class="tab {{ '' if show_closed else 'active' }}" href="{{ url_for('vehicle', vehicleId=vehicle.id, category=historyFilters.category, work=historyFilters.work, q=historyFilters.q) }}">
+                Offen ({{ openOrders|length }})
+            </a>
+            <a class="tab {{ 'active' if show_closed else '' }}" href="{{ url_for('vehicle', vehicleId=vehicle.id, tab='closed', category=historyFilters.category, work=historyFilters.work, q=historyFilters.q) }}">
+                Geschlossen ({{ closedOrders|length }})
+            </a>
+        </div>
 
+        {% set selected_orders = closedOrders if show_closed else openOrders %}
+        {% if selected_orders %}
+            <div class="list">
+                {% for order in selected_orders %}
+                    <a class="list-item" href="{{ url_for('order', orderId=order.id) }}">
+                        <div>
+                            <div class="list-title">{{ order.title }}</div>
+                            <div class="list-meta">
+                                Angelegt {{ order.date|dateTime }}
+                                {% if order.isClosed %}· abgeschlossen {{ order.closedAt|dateTime }}{% endif %}
+                            </div>
+                        </div>
+                        <span class="badge {{ 'badge-closed' if order.isClosed else 'badge-open' }}">
+                            {{ 'Geschlossen' if order.isClosed else 'Offen' }}
+                        </span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty">
+                Keine {{ 'geschlossenen' if show_closed else 'offenen' }} Aufträge vorhanden.
+            </div>
+        {% endif %}
+    </section>
+</div>
 
-<h3>Vehicle Data</h3>
-
-<ul>
-<li>First Registration: {{ vehicle.firstRegistration }}</li>
-<li>Engine Oil: {{ vehicle.engineOil }}</li>
-<li>Gearbox Oil: {{ vehicle.gearboxOil }}</li>
-<li>Diff Oil: {{ vehicle.diffOil }}</li>
-<li>Coolant: {{ vehicle.coolant }}</li>
-<li>Fuel: {{ vehicle.fuel }}</li>
-<li>Engine Code: {{ vehicle.engineCode }}</li>
-<li>License Plate: {{ vehicle.licensePlate }}</li>
-</ul>
-
-<hr>
-
-<h3>Vehicle Summary</h3>
-
-<p>Total Income: {{ totalIncome }} €</p>
-<p>Total Expenses: {{ totalCost }} €</p>
-<p>Result: {{ result }} €</p>
-
-<hr>
-
-<h2>Orders</h2>
-
-<a href="{{ url_for('addOrder', vehicleId=vehicle.id) }}">
-Add Order
-</a>
-
-<ul>
-{% for order in vehicle.orders %}
-<li>
-<a href="{{ url_for('order', orderId=order.id) }}">
-{{ order.title }}
-</a>
-</li>
-{% endfor %}
-</ul>
-
+{% if attachedOrders %}
+<section class="card" style="margin-top: 18px">
+    <div class="card-header">
+        <h2>Als Spender angehängt</h2>
+    </div>
+    <div class="list">
+        {% for order in attachedOrders %}
+            <a class="list-item" href="{{ url_for('order', orderId=order.id) }}">
+                <div>
+                    <div class="list-title">{{ order.title }}</div>
+                    <div class="list-meta">
+                        Für {{ order.vehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                        · angelegt {{ order.date|dateTime }}
+                        {% if order.isClosed %}· abgeschlossen {{ order.closedAt|dateTime }}{% endif %}
+                    </div>
+                </div>
+                <span class="badge {{ 'badge-closed' if order.isClosed else 'badge-open' }}">
+                    {{ 'Geschlossen' if order.isClosed else 'Offen' }}
+                </span>
+            </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
 {% endblock %}

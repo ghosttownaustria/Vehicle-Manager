@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Benutzer - Vehicle Manager{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Benutzer</h1>
+        <p>Benutzer, Rollen und Fahrzeug-Zuordnungen.</p>
+    </div>
+</div>
+
+<div class="grid" style="margin-bottom: 22px">
+    <div class="stat span-3">
+        <div class="stat-label">Benutzer</div>
+        <div class="stat-value">{{ users|length }}</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Kunden</div>
+        <div class="stat-value">{{ users|selectattr('role', 'equalto', 'customer')|list|length }}</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Techniker</div>
+        <div class="stat-value">{{ users|selectattr('role', 'equalto', 'technician')|list|length }}</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Admins</div>
+        <div class="stat-value">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
+    </div>
+</div>
+
+<section class="card" style="margin-bottom: 22px">
+    <div class="card-header">
+        <h2>Benutzer anlegen</h2>
+    </div>
+    <form method="post" class="grid">
+        <div class="field span-6">
+            <label for="name">Name</label>
+            <input id="name" type="text" name="name" required>
+        </div>
+        <div class="field span-6">
+            <label for="email">E-Mail-Adresse</label>
+            <input id="email" type="email" name="email" required>
+        </div>
+        <div class="field span-4">
+            <label for="password">Passwort</label>
+            <input id="password" type="password" name="password" required>
+        </div>
+        <div class="field span-4">
+            <label for="passwordConfirm">Passwort wiederholen</label>
+            <input id="passwordConfirm" type="password" name="passwordConfirm" required>
+        </div>
+        <div class="field span-4">
+            <label for="role">Rolle</label>
+            <select id="role" name="role" required>
+                {% for value, label in roleOptions %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="actions span-12">
+            <button class="btn btn-primary" type="submit">Benutzer anlegen</button>
+        </div>
+    </form>
+</section>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Benutzerliste</h2>
+    </div>
+    {% if users %}
+        <div class="list">
+            {% for user in users %}
+                <div class="list-item">
+                    <div style="flex: 1">
+                        <div class="list-title">
+                            {{ user.displayName }}
+                            <span class="badge badge-open" style="margin-left: 8px">{{ user.roleLabel }}</span>
+                        </div>
+                        <div class="list-meta">{{ user.email }}</div>
+
+                        <form id="edit_user_{{ user.id }}" method="post" action="{{ url_for('editUser', userId=user.id) }}" class="grid" style="margin-top: 12px">
+                            <div class="field span-4">
+                                <label for="name_{{ user.id }}">Name</label>
+                                <input id="name_{{ user.id }}" type="text" name="name" value="{{ user.name or user.email }}" required>
+                            </div>
+                            <div class="field span-4">
+                                <label for="email_{{ user.id }}">E-Mail-Adresse</label>
+                                <input id="email_{{ user.id }}" type="email" name="email" value="{{ user.email }}" required>
+                            </div>
+                            <div class="field span-4">
+                                <label for="role_{{ user.id }}">Rolle</label>
+                                <select id="role_{{ user.id }}" name="role" required>
+                                    {% for value, label in roleOptions %}
+                                        <option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="field span-6">
+                                <label for="password_{{ user.id }}">Neues Passwort</label>
+                                <input id="password_{{ user.id }}" type="password" name="password">
+                            </div>
+                            <div class="field span-6">
+                                <label for="passwordConfirm_{{ user.id }}">Neues Passwort wiederholen</label>
+                                <input id="passwordConfirm_{{ user.id }}" type="password" name="passwordConfirm">
+                            </div>
+                        </form>
+
+                        <div class="list-meta">
+                            {% if user.vehicles %}
+                                Fahrzeuge:
+                                {% for vehicle in user.vehicles %}
+                                    <a href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">
+                                        {{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                                    </a>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                Noch keinem Fahrzeug zugeordnet.
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-secondary btn-sm" type="submit" form="edit_user_{{ user.id }}">Speichern</button>
+                        {% if currentUser.id != user.id %}
+                            <form method="post" action="{{ url_for('deleteUser', userId=user.id) }}"
+                                  onsubmit="return confirm('Benutzer wirklich löschen?')">
+                                <button class="btn btn-danger btn-sm" type="submit">Löschen</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty">Noch keine Benutzer vorhanden.</div>
+    {% endif %}
+</div>
+{% endblock %}

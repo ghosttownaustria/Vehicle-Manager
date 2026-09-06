@@ -1,99 +1,280 @@
 {% extends "base.html" %}
+{% block title %}{{ order.title }} · Vehicle Manager{% endblock %}
 {% block content %}
+<div class="page-header">
+    <div>
+        <div style="margin-bottom: 8px">
+            <span class="badge {{ 'badge-closed' if order.isClosed else 'badge-open' }}">
+                {{ 'Geschlossen' if order.isClosed else 'Offen' }}
+            </span>
+        </div>
+        <h1>{{ order.title }}</h1>
+        <p>
+            <a href="{{ url_for('vehicle', vehicleId=order.vehicle.id) }}">{{ vehicleName(order.vehicle) }}</a>
+            · angelegt {{ order.date|dateTime }}
+            {% if order.isClosed %}· abgeschlossen {{ order.closedAt|dateTime }}{% endif %}
+        </p>
+    </div>
+    <div class="actions">
+        {% if currentUser.canModifyVehicles %}
+            <a class="btn btn-secondary" href="{{ url_for('printOrder', orderId=order.id) }}">PDF</a>
+        {% endif %}
+        {% if currentUser.canModifyVehicles and not order.isClosed %}
+            <a class="btn btn-secondary" href="{{ url_for('editOrder', orderId=order.id) }}">Bearbeiten</a>
+            <form method="post" action="{{ url_for('closeOrder', orderId=order.id) }}"
+                  onsubmit="return confirm('Auftrag wirklich abschließen? Danach kann er nicht mehr bearbeitet werden.')">
+                <button class="btn btn-success" type="submit">Auftrag abschließen</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
 
-<h2>Order: {{ order.title }}</h2>
+{% if order.description %}
+    <div class="card" style="margin-bottom: 20px">
+        <h2>Beschreibung</h2>
+        <p style="white-space: pre-wrap; margin-bottom: 0">{{ order.description }}</p>
+    </div>
+{% endif %}
 
-<p>{{ order.description }}</p>
+{% if order.isClosed %}
+    <div class="alert alert-info">
+        Dieser Auftrag ist abgeschlossen und schreibgeschützt. Ausgaben, Arbeitszeiten,
+        Einnahmen und Auftragsdaten können nicht mehr geändert oder gelöscht werden.
+    </div>
+{% endif %}
 
-<a href="{{ url_for('vehicle', vehicleId=order.vehicle.id) }}">
-← Back to Vehicle
-</a>
+<section class="card" style="margin-bottom: 22px">
+    <div class="card-header">
+        <h2>Angehängte Fahrzeuge</h2>
+        <strong>{{ attachedVehicleSummaries|length }}</strong>
+    </div>
 
-<a href="{{ url_for('printOrder', orderId=order.id) }}">
-    📄 Download PDF
-</a>
+    {% if attachedVehicleSummaries %}
+        <div class="list">
+            {% for summary in attachedVehicleSummaries %}
+                {% set attachedVehicle = summary.item %}
+                <div class="list-item">
+                    <div>
+                        <div class="list-title">
+                            <a href="{{ url_for('vehicle', vehicleId=attachedVehicle.id) }}">
+                                {{ vehicleName(attachedVehicle, 'list') }}
+                            </a>
+                        </div>
+                        <div class="list-meta">
+                            {{ attachedVehicle.licensePlate or 'Kein Kennzeichen' }}
+                            · FIN/VIN: {{ attachedVehicle.vin or '–' }}
+                            · EK {{ summary.totalCost|currency }} €
+                            · Einnahmen {{ summary.totalIncome|currency }} €
+                            · Arbeitszeit {{ summary.totalHours|currency }} h
+                        </div>
+                    </div>
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}
+                        <form method="post" action="{{ url_for('detachVehicleFromOrder', orderId=order.id, vehicleId=attachedVehicle.id) }}"
+                              onsubmit="return confirm('Fahrzeug von diesem Auftrag lösen?')">
+                            <button class="btn btn-secondary btn-sm" type="submit">Lösen</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty">Noch keine Fahrzeuge an diesen Auftrag angehängt.</div>
+    {% endif %}
 
-<hr>
+    {% if currentUser.canModifyVehicles and not order.isClosed %}
+        {% if attachableVehicles %}
+            <form method="post" class="grid" style="margin-top: 16px">
+                <div class="field span-8">
+                    <label for="attached_vehicle_id">Fahrzeug anhängen</label>
+                    <select id="attached_vehicle_id" name="attached_vehicle_id" required>
+                        {% for vehicle in attachableVehicles %}
+                            <option value="{{ vehicle.id }}">
+                                {{ vehicle.displayName or 'Unbenanntes Fahrzeug' }}
+                                · {{ vehicle.licensePlate or 'Kein Kennzeichen' }}
+                                · FIN/VIN: {{ vehicle.vin or '–' }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field span-4" style="align-self: end">
+                    <button class="btn btn-primary" type="submit" name="attach_vehicle_submit">Anhängen</button>
+                </div>
+            </form>
+        {% else %}
+            <p class="hint">Keine weiteren Fahrzeuge zum Anhängen verfügbar.</p>
+        {% endif %}
+    {% endif %}
+</section>
 
-<h3>Summary</h3>
+<div class="grid" style="margin-bottom: 22px">
+    <div class="stat span-3">
+        <div class="stat-label">Einnahmen</div>
+        <div class="stat-value">{{ totalIncome|currency }} €</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">EK</div>
+        <div class="stat-value">{{ totalCost|currency }} €</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Ergebnis</div>
+        <div class="stat-value {{ 'positive' if result >= 0 else 'negative' }}">{{ result|currency }} €</div>
+    </div>
+    <div class="stat span-3">
+        <div class="stat-label">Arbeitszeit</div>
+        <div class="stat-value">{{ totalHours|currency }} h</div>
+    </div>
+</div>
 
-<p>Total Income: {{ totalIncome }} €</p>
-<p>Total Costs: {{ totalCost }} €</p>
-<p>Result: {{ result }} €</p>
-<p>Total Hours: {{ totalHours }} h</p>
+{% if currentUser.canModifyVehicles and not order.isClosed %}
+<div class="grid">
+    <section class="card span-4">
+        <h2>Ausgabe hinzufügen</h2>
+        <form method="post">
+            <div class="field">
+                <label>Beschreibung</label>
+                <input type="text" name="description" required>
+            </div>
+            <div class="field">
+                <label>EK (€)</label>
+                <input type="number" step="0.01" min="0" name="amount" required>
+            </div>
+            <div class="field">
+                <label>VK (€)</label>
+                <input type="number" step="0.01" min="0" name="saleAmount" value="0" required>
+            </div>
+            {% set personFieldId = 'cost_person' %}
+            {% set personLabel = 'Bezahlt von' %}
+            {% set selectedPerson = '' %}
+            {% set personFieldClass = 'field' %}
+            {% set userOptions = personUserOptions %}
+            {% set userOptionValues = personUserOptionValues %}
+            {% include "_person_select.html" %}
+            <div class="field">
+                <label>Datum und Uhrzeit</label>
+                <input type="datetime-local" name="date">
+            </div>
+            <button class="btn btn-primary" type="submit" name="cost_submit">Ausgabe speichern</button>
+        </form>
+    </section>
 
-<hr>
+    <section class="card span-4">
+        <h2>Arbeitszeit hinzufügen</h2>
+        <form method="post">
+            <div class="field">
+                <label>Beschreibung</label>
+                <input type="text" name="description" required>
+            </div>
+            <div class="field">
+                <label>Stunden</label>
+                <input type="number" step="0.1" min="0" name="hours" required>
+            </div>
+            {% set personFieldId = 'time_person' %}
+            {% set personLabel = 'Ausgeführt von' %}
+            {% set selectedPerson = '' %}
+            {% set personFieldClass = 'field' %}
+            {% set userOptions = workTimeUserOptions %}
+            {% set userOptionValues = workTimeUserOptionValues %}
+            {% include "_person_select.html" %}
+            <div class="field">
+                <label>Datum und Uhrzeit</label>
+                <input type="datetime-local" name="date">
+            </div>
+            <button class="btn btn-primary" type="submit" name="time_submit">Arbeitszeit speichern</button>
+        </form>
+    </section>
 
-<h3>Add Cost</h3>
+    <section class="card span-4">
+        <h2>Einnahme hinzufügen</h2>
+        <form method="post">
+            <div class="field">
+                <label>Beschreibung</label>
+                <input type="text" name="description" required>
+            </div>
+            <div class="field">
+                <label>Betrag (€)</label>
+                <input type="number" step="0.01" min="0" name="amount" required>
+            </div>
+            {% set personFieldId = 'income_person' %}
+            {% set personLabel = 'Erhalten von' %}
+            {% set selectedPerson = '' %}
+            {% set personFieldClass = 'field' %}
+            {% set userOptions = personUserOptions %}
+            {% set userOptionValues = personUserOptionValues %}
+            {% include "_person_select.html" %}
+            <div class="field">
+                <label>Datum und Uhrzeit</label>
+                <input type="datetime-local" name="date">
+            </div>
+            <button class="btn btn-primary" type="submit" name="income_submit">Einnahme speichern</button>
+        </form>
+    </section>
+</div>
+{% endif %}
 
-<form method="post">
-<input type="text" name="description" placeholder="Description" required><br><br>
-<input type="number" step="0.01" name="amount" placeholder="Amount" required><br><br>
-<input type="text" name="person" placeholder="Paid by" required><br><br>
+<section class="card" style="margin-top: 22px">
+    <div class="card-header"><h2>Ausgaben</h2><strong>EK {{ directCost|currency }} €</strong></div>
+    {% if costs %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">EK</th><th class="number">VK</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+            {% for cost in costs %}
+                <tr>
+                    <td>{{ cost.date|dateTime }}</td>
+                    <td>{{ cost.description }}</td>
+                    <td>{{ cost.person }}</td>
+                    <td class="number">{{ cost.amount|currency }} €</td>
+                    <td class="number">{{ cost.saleAmount|currency }} €</td>
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editCost', costId=cost.id) }}">Bearbeiten</a></td>{% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div class="empty">Noch keine Ausgaben erfasst.</div>{% endif %}
+</section>
 
-<button type="submit" name="cost_submit">
-Add Cost
-</button>
-</form>
+<section class="card">
+    <div class="card-header"><h2>Arbeitszeiten</h2><strong>{{ directHours|currency }} h</strong></div>
+    {% if times %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Stunden</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+            {% for time in times %}
+                <tr>
+                    <td>{{ time.date|dateTime }}</td>
+                    <td>{{ time.description }}</td>
+                    <td>{{ time.person }}</td>
+                    <td class="number">{{ time.hours|currency }} h</td>
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editTime', timeId=time.id) }}">Bearbeiten</a></td>{% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div class="empty">Noch keine Arbeitszeiten erfasst.</div>{% endif %}
+</section>
 
-<hr>
-
-<h3>Add Work Time</h3>
-
-<form method="post">
-<input type="text" name="description" placeholder="Description" required><br><br>
-<input type="number" step="0.1" name="hours" placeholder="Hours" required><br><br>
-<input type="text" name="person" placeholder="Worked by" required><br><br>
-
-<button type="submit" name="time_submit">
-Add Work Time
-</button>
-</form>
-
-<hr>
-
-<h3>Add Income</h3>
-
-<form method="post">
-<input type="text" name="description" placeholder="Description" required><br><br>
-<input type="number" step="0.01" name="amount" placeholder="Amount" required><br><br>
-<input type="text" name="person" placeholder="Received by" required><br><br>
-
-<button type="submit" name="income_submit">
-Add Income
-</button>
-</form>
-
-<hr>
-
-<h2>Costs</h2>
-
-<ul>
-{% for cost in costs %}
-<li>
-{{ cost.description }} - {{ cost.amount }} € - {{ cost.person }}
-</li>
-{% endfor %}
-</ul>
-
-<h2>Work Times</h2>
-
-<ul>
-{% for time in times %}
-<li>
-{{ time.description }} - {{ time.hours }} h - {{ time.person }}
-</li>
-{% endfor %}
-</ul>
-
-<h2>Income</h2>
-
-<ul>
-{% for income in incomes %}
-<li>
-{{ income.description }} - {{ income.amount }} € - {{ income.person }}
-</li>
-{% endfor %}
-</ul>
-
+<section class="card">
+    <div class="card-header"><h2>Einnahmen</h2><strong>{{ directIncome|currency }} €</strong></div>
+    {% if incomes %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Betrag</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+            {% for income in incomes %}
+                <tr>
+                    <td>{{ income.date|dateTime }}</td>
+                    <td>{{ income.description }}</td>
+                    <td>{{ income.person }}</td>
+                    <td class="number">{{ income.amount|currency }} €</td>
+                    {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editIncome', incomeId=income.id) }}">Bearbeiten</a></td>{% endif %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div class="empty">Noch keine Einnahmen erfasst.</div>{% endif %}
+</section>
 {% endblock %}

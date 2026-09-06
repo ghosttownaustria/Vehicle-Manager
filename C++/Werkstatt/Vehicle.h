@@ -31,6 +31,13 @@ enum class FuelType {
 };
 
 
+enum class VehicleType {
+  CAR,
+  MOTORCYCLE,
+  TRUCK
+};
+
+
 class Vehicle {
 public:
 
@@ -47,7 +54,8 @@ protected:
   LicensePlate m_licensePlate;
   std::string m_engineType;
   FuelType m_fuelType;
-
+  VehicleType m_vehicleType;
+  std::string m_legalVehicleType;
 
 
 };

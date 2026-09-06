@@ -294,3 +294,7 @@ Desktop.ini
 
 # Logs
 Logs/
+
+# Vehicle Manager C++ local database
+Werkstatt/werkstatt_cpp.db
+Werkstatt/werkstatt_cpp.db.tmp

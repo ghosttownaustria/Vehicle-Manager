@@ -79,22 +79,65 @@ SERVICE_CATEGORIES = [
     {"value": "other", "label": "Sonstiges", "symbol": "•"},
 ]
 STANDARD_WORK_OPTIONS = [
+    # Motor / Service
     ("engine_oil", "Ölwechsel"),
     ("oil_filter", "Ölfilter"),
     ("air_filter", "Luftfilter"),
     ("cabin_filter", "Pollenfilter / Innenraumfilter"),
+    ("fuel_filter", "Kraftstofffilter"),
+    ("spark_glow_plugs", "Zündkerzen / Glühkerzen"),
+
+    # Riementrieb / Steuertrieb
+    ("timing", "Zahnriemen / Steuerkette"),
+    ("v_belt", "Keilriemen / Keilrippenriemen"),
+    ("belt_tensioner", "Riemenspanner"),
+    ("belt_idler", "Umlenkrolle"),
+
+    # Getriebe / Antrieb
     ("gearbox_oil", "Getriebeölwechsel"),
-    ("spark_plugs", "Zündkerzen"),
+    ("differential_oil", "Differentialöl"),
+    ("transfer_case_oil", "Verteilergetriebeöl"),
+    ("clutch", "Kupplung"),
+
+    # Bremsanlage allgemein
     ("brake_fluid", "Bremsflüssigkeit"),
-    ("brake_pads", "Bremsbeläge"),
-    ("brake_discs", "Bremsscheiben"),
+
+    # Bremsen vorne
+    ("brake_pads_front", "Bremsbeläge vorne"),
+    ("brake_discs_front", "Bremsscheiben vorne"),
+
+    # Bremsen hinten
+    ("brake_pads_rear", "Bremsbeläge hinten"),
+    ("brake_discs_rear", "Bremsscheiben hinten"),
+
+    # Räder / Reifen
+    ("wheel_change", "Räderwechsel"),
+    ("tire_mount", "Reifen montieren"),
+    ("wheel_balancing", "Räder auswuchten"),
+    ("tire_repair", "Reifenreparatur"),
+
+    # Lenkung
+    ("power_steering_fluid", "Servolenkungsöl"),
+
+    # Kühlung
     ("coolant", "Kühlmittelwechsel"),
-    ("timing_belt", "Zahnriemen / Steuerkette"),
-    ("v_belt", "Keilriemen "),
+    ("water_pump", "Wasserpumpe"),
+    ("thermostat", "Thermostat"),
+
+    # Elektrik
     ("battery", "Batterie"),
-    ("tire_change", "Reifenwechsel"),
-    ("wheel_alignment", "Achsvermessung"),
-    ("windshield_wipers", "Scheibenwischer"),
+
+    # Scheiben / Wischer
+    ("windshield_wipers", "Scheibenwischer vorne"),
+    ("rear_wiper", "Scheibenwischer hinten"),
+
+    # Klimaanlage
+    ("ac_service", "Klimaservice"),
+    ("ac_disinfection", "Klimaanlage desinfizieren"),
+
+    # Sonstiges
+    ("inspection", "§57a / Pickerl"),
+    ("rust_protection", "Unterboden- / Rostschutz"),
 ]
 
 

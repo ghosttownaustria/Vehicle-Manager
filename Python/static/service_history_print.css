@@ -1,0 +1,27 @@
+[data-history-print] .history-fallback { display: block; margin-top: 24px; }
+[data-history-print] .history-fallback-entry { margin-bottom: 16px; }
+[data-history-print] .history-fallback-entry > summary,
+[data-history-print] .history-chart-hint { display: none; }
+[data-history-print] .history-chart-point { pointer-events: none; }
+
+@page { size: A4 portrait; margin: 15mm; }
+@media print {
+    body { background: #fff; color: #000; font-size: 10pt; }
+    .topbar, .history-print-actions, .alert, .history-dialog,
+    .history-chart-tooltip { display: none !important; }
+    .page { width: 100%; max-width: none; padding: 0; margin: 0; }
+    .page-header { margin-bottom: 12px; }
+    .service-history { padding: 0; border: 0; box-shadow: none; }
+    .history-chart { break-inside: avoid; padding: 12px; }
+    .history-chart-plot { height: 280px; }
+    .history-chart, .badge, .history-chart-point-dot, .history-chart-legend-symbol {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    .history-fallback-entry { break-inside: avoid; }
+    .history-entry-header, .history-entry h4 { break-after: avoid; }
+    .history-entry { padding: 14px; }
+    .history-order-list { display: block; }
+    .history-order-list li { margin-top: 6px; }
+    a { color: inherit; text-decoration: none; }
+}

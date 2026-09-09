@@ -298,6 +298,39 @@ class ServiceHistoryTests(unittest.TestCase):
                 self.assertEqual(ServiceHistoryEntry.query.count(), 2)
                 self.assertIn("Geschätzt für heute", response.get_data(as_text=True))
 
+    def test_print_history_contains_all_details_in_date_order_despite_filters(self):
+        newer = self.create_entry(date="2024-03-01", description="Neue Reparatur")
+        older = self.create_entry(date="2024-02-01", description="Früher Ölwechsel")
+        with captured_templates() as templates:
+            response = self.client.get(
+                f"/vehicle/{self.vehicle.id}/history/print?q=kein-Treffer",
+            )
+        self.assertEqual(response.status_code, 200)
+        context = next(c for name, c in templates if name == "service_history_print.html")
+        self.assertEqual([entry.id for entry in context["historyEntries"]], [older.id, newer.id])
+        html = response.get_data(as_text=True)
+        self.assertLess(html.index("data-history-chart"), html.index("Früher Ölwechsel"))
+        self.assertLess(html.index("Früher Ölwechsel"), html.index("Neue Reparatur"))
+        for value in ("125.000 km", "Ölfilter", "Inspektion", "TEST-ONE", "window.print()"):
+            self.assertIn(value, html)
+        self.assertEqual(html.count('class="history-fallback-entry" open'), 2)
+        self.assertNotIn('class="history-filters"', html)
+        self.assertNotIn("history-entry-actions", html)
+
+    def test_print_history_access_and_empty_vehicle(self):
+        url = f"/vehicle/{self.vehicle.id}/history/print"
+        self.login(self.customer)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Noch keine Servicehistorie vorhanden", response.get_data(as_text=True))
+        response = self.client.get(f"/vehicle/{self.other_vehicle.id}/history/print")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/")
+        self.login(None)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].startswith("/login"))
+
     def test_customer_can_read_assigned_vehicle_but_cannot_modify_history(self):
         entry = self.create_entry()
         before = self.snapshot(entry)

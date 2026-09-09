@@ -1088,6 +1088,35 @@ def vehicle(vehicleId):
     )
 
 
+@app.route("/vehicle/<int:vehicleId>/history/print")
+@loginRequired
+def printServiceHistory(vehicleId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+
+    entries = (
+        ServiceHistoryEntry.query.filter_by(vehicle_id=vehicleId)
+        .options(selectinload(ServiceHistoryEntry.orders))
+        .order_by(ServiceHistoryEntry.date.asc(), ServiceHistoryEntry.id.asc())
+        .all()
+    )
+    curve = [
+        {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage}
+        for entry in entries
+    ]
+    return render_template(
+        "service_history_print.html", vehicle=vehicleItem, historyPrint=True,
+        historyEntries=entries, historyTotal=len(entries),
+        historyCurvePoints=curve, historyProjection=projectMileage(curve),
+        serviceCategories=SERVICE_CATEGORIES, standardWorkOptions=STANDARD_WORK_OPTIONS,
+        historyOrderLinks={
+            entry.id: [item for item in entry.orders if canAccessOrder(item)]
+            for entry in entries
+        },
+    )
+
+
 def serviceHistoryForm(vehicleItem, entry=None):
     availableOrders = (
         Order.query.filter_by(vehicle_id=vehicleItem.id)

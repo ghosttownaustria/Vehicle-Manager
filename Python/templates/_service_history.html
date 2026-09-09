@@ -1,14 +1,20 @@
-<section class="card service-history" id="service-history" aria-labelledby="history-heading">
+<section class="card service-history" id="service-history" aria-labelledby="history-heading" {% if historyPrint %}data-history-print{% endif %}>
     <div class="card-header history-header">
         <div>
             <h2 id="history-heading">Servicehistorie</h2>
             <p class="muted history-intro">Wartung, Reparaturen und Reifenwechsel im Kilometerverlauf</p>
         </div>
+        {% if not historyPrint %}
+        <div class="actions">
+            <a class="btn btn-secondary" href="{{ url_for('printServiceHistory', vehicleId=vehicle.id) }}">Servicehistorie drucken</a>
         {% if currentUser.canModifyVehicles %}
             <a class="btn btn-primary" href="{{ url_for('addServiceHistory', vehicleId=vehicle.id) }}">Neuer Historieneintrag</a>
         {% endif %}
+        </div>
+        {% endif %}
     </div>
 
+    {% if not historyPrint %}
     <form method="get" action="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}" class="history-filters" role="search" aria-label="Servicehistorie filtern">
         {% if request.args.get('tab') == 'closed' %}
             <input type="hidden" name="tab" value="closed">
@@ -44,6 +50,7 @@
     </form>
 
     <p class="history-count muted" role="status">{{ historyEntries|length }} von {{ historyTotal }} {{ 'Eintrag' if historyTotal == 1 else 'Einträgen' }}</p>
+    {% endif %}
 
     {% if historyTotal %}
         <div class="history-chart" data-history-chart hidden>
@@ -85,7 +92,7 @@
         {% endif %}
         <div class="history-fallback" data-history-fallback>
             {% for entry in historyEntries %}
-                <details class="history-fallback-entry" id="history-entry-{{ entry.id }}" data-history-entry data-id="{{ entry.id }}" data-date="{{ entry.date.isoformat() }}" data-mileage="{{ entry.mileage }}" data-categories='{{ entry.categories|tojson }}'>
+                <details class="history-fallback-entry" {% if historyPrint %}open{% endif %} id="history-entry-{{ entry.id }}" data-history-entry data-id="{{ entry.id }}" data-date="{{ entry.date.isoformat() }}" data-mileage="{{ entry.mileage }}" data-categories='{{ entry.categories|tojson }}'>
                     <summary>
                         <time datetime="{{ entry.date.isoformat() }}">{{ entry.date.strftime('%d.%m.%Y') }}</time>
                         <span class="history-mileage">· {{ '{:,}'.format(entry.mileage).replace(',', '.') }} km</span>
@@ -101,7 +108,7 @@
                                 <time datetime="{{ entry.date.isoformat() }}">{{ entry.date.strftime('%d.%m.%Y') }}</time>
                                 <span class="history-mileage">{{ '{:,}'.format(entry.mileage).replace(',', '.') }} km</span>
                             </h3>
-                            {% if currentUser.canModifyVehicles %}
+                            {% if currentUser.canModifyVehicles and not historyPrint %}
                                 <div class="actions history-entry-actions">
                                     <a class="btn btn-secondary btn-sm" href="{{ url_for('editServiceHistory', vehicleId=vehicle.id, entryId=entry.id) }}" aria-label="Eintrag vom {{ entry.date.strftime('%d.%m.%Y') }} bearbeiten">Bearbeiten</a>
                                     <form method="post" action="{{ url_for('deleteServiceHistory', vehicleId=vehicle.id, entryId=entry.id) }}" onsubmit="return confirm('Diesen Historieneintrag löschen? Die verknüpften Aufträge bleiben erhalten.');">

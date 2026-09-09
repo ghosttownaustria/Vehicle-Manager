@@ -15,6 +15,12 @@ Fahrzeugs auswählen. Kategorien haben eigene Farben und Symbole. Einträge lass
 sich anschließend bearbeiten oder löschen; verknüpfte Aufträge bleiben erhalten.
 Kunden können die Historie ihrer zugewiesenen Fahrzeuge ansehen.
 
+Über **Servicehistorie drucken** öffnet sich eine Druckansicht mit der Grafik am
+Anfang und anschließend allen Einträgen vom ältesten zum neuesten, jeweils mit
+vollständigen Details und sichtbaren verknüpften Aufträgen. Die Ausgabe enthält
+immer die gesamte Historie, unabhängig von Filtern. **Drucken / als PDF speichern**
+öffnet den Druckdialog des Browsers. Für die Grafik muss JavaScript aktiviert sein.
+
 Die Filter für Kategorie und Standardarbeit lassen sich mit der Suche in der
 Beschreibung kombinieren. Die Suche ignoriert Groß- und Kleinschreibung.
 Filter blenden nur Ereignispunkte ein oder aus. Die vollständige Kilometerkurve

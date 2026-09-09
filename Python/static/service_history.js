@@ -2,6 +2,7 @@
     "use strict";
 
     const section = document.getElementById("service-history");
+    const printView = section?.hasAttribute("data-history-print");
     const chart = section?.querySelector("[data-history-chart]");
     const dialog = section?.querySelector("#history-entry-dialog");
     if (!chart || !dialog || typeof dialog.showModal !== "function") return;
@@ -48,6 +49,7 @@
     let activeButton = null;
     let tooltipButton = null;
     let lastWidth = 0;
+    let lastHeight = 0;
     let resizeFrame = 0;
 
     function element(tag, className, text) {
@@ -152,8 +154,9 @@
     function draw() {
         const width = plot.clientWidth;
         const height = plot.clientHeight;
-        if (!width || !height || width === lastWidth) return;
+        if (!width || !height || (width === lastWidth && height === lastHeight)) return;
         lastWidth = width;
+        lastHeight = height;
         const focusedIds = pointLayer.contains(document.activeElement) ? document.activeElement.dataset.entryIds : null;
         hideTooltip();
         svg.replaceChildren();
@@ -233,6 +236,33 @@
             // Keep group positions stable too: filtering only changes their visible entries.
             group.items = group.curveItems.map(item => visibleEntries.get(item.id)).filter(Boolean);
             if (!group.items.length) continue;
+            const types = selectedCategories(group.items);
+            const colors = types.map(item => categoryColors[item.value] || categoryColors.other);
+            const symbol = group.items.length > 1 ? String(group.items.length) : types[0]?.symbol || "•";
+            if (printView) {
+                // Print layout can resize the SVG after beforeprint. Keep markers
+                // in its coordinate system so they scale together with the curve.
+                const marker = svgElement("g", {
+                    transform: `translate(${group.x} ${group.y})`,
+                    class: "history-chart-print-point",
+                });
+                marker.append(svgElement("title", {},
+                    `${dateRange(group.items)}, ${mileageRange(group.items)}, ${types.map(item => item.label).join(", ")}`));
+                marker.append(svgElement("circle", {r: 16, fill: "#fff"}));
+                const ringColors = colors.length ? colors : [categoryColors.other];
+                const circumference = 2 * Math.PI * 12;
+                ringColors.forEach((color, index) => marker.append(svgElement("circle", {
+                    r: 12, fill: "none", stroke: color, "stroke-width": 3,
+                    "stroke-dasharray": `${circumference / ringColors.length} ${circumference - circumference / ringColors.length}`,
+                    transform: `rotate(${-90 + index * 360 / ringColors.length})`,
+                })));
+                marker.append(svgElement("text", {
+                    x: 0, y: 0, "text-anchor": "middle", "dominant-baseline": "central",
+                    fill: "#344054", "font-size": 11, "font-weight": 800,
+                }, symbol));
+                svg.append(marker);
+                continue;
+            }
             const button = element("button", "history-chart-point");
             button.type = "button";
             button.style.left = `${group.x}px`;
@@ -240,14 +270,12 @@
             button.dataset.entryIds = group.items.map(item => item.id).join(",");
             button.setAttribute("aria-haspopup", "dialog");
             button.setAttribute("aria-controls", dialog.id);
-            const types = selectedCategories(group.items);
             button.setAttribute("aria-label", `${group.items.length > 1 ? `${group.items.length} Einträge, ` : ""}${dateRange(group.items)}, ${mileageRange(group.items)}, ${types.map(item => item.label).join(", ")}. Details öffnen.`);
-            const colors = types.map(item => categoryColors[item.value] || categoryColors.other);
             const segments = colors.map((color, index) => `${color} ${index * 100 / colors.length}% ${(index + 1) * 100 / colors.length}%`);
             const dot = element("span", "history-chart-point-dot");
             dot.style.setProperty("--point-fill", `conic-gradient(${segments.join(",")})`);
             dot.setAttribute("aria-hidden", "true");
-            dot.append(element("span", "history-chart-point-symbol", group.items.length > 1 ? String(group.items.length) : types[0]?.symbol || "•"));
+            dot.append(element("span", "history-chart-point-symbol", symbol));
             button.append(dot);
             button.addEventListener("pointerenter", () => showTooltip(button, group.items));
             button.addEventListener("pointerleave", hideTooltip);
@@ -271,7 +299,15 @@
     );
     chart.hidden = false;
     draw();
-    fallback.hidden = true;
+    fallback.hidden = !printView;
+    if (printView) {
+        const redraw = () => {
+            lastWidth = 0;
+            draw();
+        };
+        window.addEventListener("beforeprint", redraw);
+        window.addEventListener("afterprint", redraw);
+    }
     const resize = () => {
         cancelAnimationFrame(resizeFrame);
         resizeFrame = requestAnimationFrame(draw);

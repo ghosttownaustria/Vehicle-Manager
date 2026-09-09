@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Servicehistorie · {{ vehicle.displayName }}{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='service_history.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='service_history_print.css') }}">
+<script src="{{ url_for('static', filename='service_history.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ vehicle.displayName }}</h1>
+        <p>{{ vehicle.licensePlate or 'Kein Kennzeichen' }} · FIN/VIN: {{ vehicle.vin or '–' }}</p>
+    </div>
+    <div class="actions history-print-actions">
+        <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}">Zurück zum Fahrzeug</a>
+        <button class="btn btn-primary" type="button" onclick="window.print()">Drucken / als PDF speichern</button>
+    </div>
+</div>
+<noscript><p>Bitte JavaScript aktivieren, damit die Grafik angezeigt und mitgedruckt wird.</p></noscript>
+{% include "_service_history.html" %}
+{% endblock %}

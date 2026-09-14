@@ -300,6 +300,23 @@ class Order(db.Model):
     )
 
 
+HISTORY_OIL_FIELDS = (
+    ("engineOil", "Motoröl", "engine_oil"),
+    ("gearboxOil", "Getriebeöl", "gearbox_oil"),
+    ("diffOil", "Differentialöl", "differential_oil"),
+)
+
+
+def parseHistoryOils(values):
+    oils = {}
+    for field, label, _ in HISTORY_OIL_FIELDS:
+        value = values.get(field, "")
+        if not isinstance(value, str) or len(value.strip()) > 50:
+            raise ValueError(f"{label}: Bitte höchstens 50 Zeichen eingeben.")
+        oils[field] = value.strip()
+    return oils
+
+
 class ServiceHistoryEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vehicle_id = db.Column(
@@ -310,6 +327,9 @@ class ServiceHistoryEntry(db.Model):
     description = db.Column(db.Text, nullable=False, default="")
     categories = db.Column(db.JSON, nullable=False, default=list)
     works = db.Column(db.JSON, nullable=False, default=list)
+    engineOil = db.Column(db.String(50))
+    gearboxOil = db.Column(db.String(50))
+    diffOil = db.Column(db.String(50))
     orders = db.relationship(
         "Order",
         secondary=serviceHistoryOrder,
@@ -361,6 +381,16 @@ def initializeDatabase():
     tableNames = set(inspector.get_table_names())
     migrations = []
     roleColumnWasMissing = False
+
+    if "service_history_entry" in tableNames:
+        historyColumns = {
+            column["name"] for column in inspector.get_columns("service_history_entry")
+        }
+        for field, _, _ in HISTORY_OIL_FIELDS:
+            if field not in historyColumns:
+                migrations.append(
+                    f'ALTER TABLE "service_history_entry" ADD COLUMN "{field}" VARCHAR(50)'
+                )
 
     if "vehicle" in tableNames:
         vehicleColumns = {
@@ -1052,6 +1082,10 @@ def vehicle(vehicleId):
         .all()
     )
     historyTotal = len(historyEntries)
+    latestOils = {
+        field: next((entry for entry in historyEntries if getattr(entry, field)), None)
+        for field, _, _ in HISTORY_OIL_FIELDS
+    }
     historyCurvePoints = [
         {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage}
         for entry in historyEntries
@@ -1076,6 +1110,8 @@ def vehicle(vehicleId):
         result=result,
         historyEntries=historyEntries,
         historyTotal=historyTotal,
+        latestOils=latestOils,
+        historyOilFields=HISTORY_OIL_FIELDS,
         historyCurvePoints=historyCurvePoints,
         historyProjection=projectMileage(historyCurvePoints),
         historyFilters=historyFilters,
@@ -1108,6 +1144,7 @@ def printServiceHistory(vehicleId):
     return render_template(
         "service_history_print.html", vehicle=vehicleItem, historyPrint=True,
         historyEntries=entries, historyTotal=len(entries),
+        historyOilFields=HISTORY_OIL_FIELDS,
         historyCurvePoints=curve, historyProjection=projectMileage(curve),
         serviceCategories=SERVICE_CATEGORIES, standardWorkOptions=STANDARD_WORK_OPTIONS,
         historyOrderLinks={
@@ -1132,16 +1169,21 @@ def serviceHistoryForm(vehicleItem, entry=None):
         "orderIds": [str(item.id) for item in entry.orders] if entry else [],
     }
     formErrors = []
+    formValues.update({
+        field: (getattr(entry, field) or "") if entry else ""
+        for field, _, _ in HISTORY_OIL_FIELDS
+    })
     if request.method == "POST":
         formValues = {
             key: request.form.get(key, "").strip()
-            for key in ("date", "mileage", "description")
+            for key in ("date", "mileage", "description", "engineOil", "gearboxOil", "diffOil")
         }
         formValues.update({
             key: request.form.getlist(key)
             for key in ("categories", "works", "orderIds")
         })
         try:
+            oils = parseHistoryOils(formValues)
             parsedDate, mileage, categories, works = validateServiceHistoryData(
                 formValues["date"], formValues["mileage"],
                 formValues["categories"], formValues["works"],
@@ -1163,6 +1205,10 @@ def serviceHistoryForm(vehicleItem, entry=None):
             entry.mileage = mileage
             entry.description = formValues["description"]
             entry.categories = categories
+            for field, _, work in HISTORY_OIL_FIELDS:
+                setattr(entry, field, oils[field])
+                if oils[field] and work not in works:
+                    works.append(work)
             entry.works = works
             entry.orders = [
                 item for item in availableOrders
@@ -1180,6 +1226,7 @@ def serviceHistoryForm(vehicleItem, entry=None):
         entry=entry,
         formValues=formValues,
         formErrors=formErrors,
+        historyOilFields=HISTORY_OIL_FIELDS,
         availableOrders=availableOrders,
         serviceCategories=SERVICE_CATEGORIES,
         standardWorkOptions=STANDARD_WORK_OPTIONS,

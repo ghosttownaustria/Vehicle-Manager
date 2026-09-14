@@ -2,6 +2,12 @@
     "use strict";
 
     const section = document.getElementById("service-history");
+    function openFallbackAnchor() {
+        const target = document.getElementById(window.location.hash.slice(1));
+        if (target?.matches("[data-history-entry]")) target.open = true;
+    }
+    openFallbackAnchor();
+    window.addEventListener("hashchange", openFallbackAnchor);
     const printView = section?.hasAttribute("data-history-print");
     const chart = section?.querySelector("[data-history-chart]");
     const dialog = section?.querySelector("#history-entry-dialog");
@@ -300,6 +306,21 @@
     chart.hidden = false;
     draw();
     fallback.hidden = !printView;
+    function openAnchor() {
+        if (printView || dialog.open) return;
+        const item = entries.find(entry => `#history-entry-${entry.id}` === window.location.hash);
+        if (!item) return;
+        const button = [...pointLayer.querySelectorAll("button")].find(point =>
+            point.dataset.entryIds.split(",").includes(item.id));
+        openDetails(button || chart, [item]);
+    }
+    window.addEventListener("hashchange", openAnchor);
+    document.addEventListener("click", event => {
+        const link = event.target.closest("a[href]");
+        if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        if (link.href === window.location.href) openAnchor();
+    });
+    openAnchor();
     if (printView) {
         const redraw = () => {
             lastWidth = 0;

@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 
 from app import (
     Cost,
+    HISTORY_OIL_FIELDS,
     Income,
     Order,
     ROLE_ADMIN,
@@ -22,6 +23,7 @@ from app import (
     db,
     initializeDatabase,
     parseRole,
+    parseHistoryOils,
     validateServiceHistoryData,
 )
 
@@ -328,6 +330,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                     "description": entry.description or "",
                     "categories": entry.categories,
                     "works": entry.works,
+                    **{field: getattr(entry, field) or "" for field, _, _ in HISTORY_OIL_FIELDS},
                     "orderIds": sorted(order.id for order in entry.orders),
                 }
             )
@@ -365,6 +368,10 @@ def importServiceHistory(vehicle, historyData, sourceOrderMap):
             entryData.get("works", []),
         )
         description = entryData.get("description", "")
+        oils = parseHistoryOils(entryData)
+        for field, _, work in HISTORY_OIL_FIELDS:
+            if oils[field] and work not in works:
+                works.append(work)
         if not isinstance(description, str):
             raise ValueError("Die Beschreibung eines Historien-Eintrags muss Text sein.")
         orderIds = entryData.get("orderIds", [])
@@ -389,6 +396,7 @@ def importServiceHistory(vehicle, historyData, sourceOrderMap):
                 works=works,
                 description=description,
                 orders=linkedOrders,
+                **oils,
             )
         )
     return len(historyData)

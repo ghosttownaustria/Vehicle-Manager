@@ -47,9 +47,16 @@
         </div>
         <div class="details" style="grid-template-columns: 1fr">
             <div class="detail"><span class="detail-label">Erstzulassung</span><span class="detail-value">{{ vehicle.firstRegistration or '–' }}</span></div>
-            <div class="detail"><span class="detail-label">Motoröl</span><span class="detail-value">{{ vehicle.engineOil or '–' }}</span></div>
-            <div class="detail"><span class="detail-label">Getriebeöl</span><span class="detail-value">{{ vehicle.gearboxOil or '–' }}</span></div>
-            <div class="detail"><span class="detail-label">Differentialöl</span><span class="detail-value">{{ vehicle.diffOil or '–' }}</span></div>
+            {% for field, label, work in historyOilFields %}
+                {% set oilEntry = latestOils[field] %}
+                <div class="detail"><span class="detail-label">{{ label }}</span><span class="detail-value">
+                    {% if oilEntry %}
+                        <a href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='history-entry-' ~ oilEntry.id) }}" title="Historieneintrag vom {{ oilEntry.date.strftime('%d.%m.%Y') }} öffnen">{{ oilEntry[field] }} · {{ oilEntry.date.strftime('%d.%m.%Y') }}</a>
+                    {% else %}
+                        {{ vehicle[field] or '–' }}
+                    {% endif %}
+                </span></div>
+            {% endfor %}
             <div class="detail"><span class="detail-label">Kühlmittel</span><span class="detail-value">{{ vehicle.coolant or '–' }}</span></div>
             <div class="detail"><span class="detail-label">Kraftstoff</span><span class="detail-value">{{ vehicle.fuel or '–' }}</span></div>
             <div class="detail"><span class="detail-label">Motorkennbuchstabe</span><span class="detail-value">{{ vehicle.engineCode or '–' }}</span></div>

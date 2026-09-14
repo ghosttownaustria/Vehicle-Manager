@@ -59,6 +59,19 @@
             </div>
         </fieldset>
 
+        <fieldset class="history-fieldset">
+            <legend>Verwendete Öle</legend>
+            <p class="hint">Optional beim Ölwechsel ausfüllen. Die jeweilige Ölarbeit wird automatisch ausgewählt. Die neueste Angabe erscheint in den Fahrzeugdaten mit Link zu diesem Eintrag.</p>
+            <div class="grid">
+                {% for field, label, work in historyOilFields %}
+                    <div class="field span-6">
+                        <label for="history-{{ field }}">{{ label }}</label>
+                        <input id="history-{{ field }}" name="{{ field }}" value="{{ formValues[field] }}" maxlength="50" placeholder="{{ 'z. B. 10W40' if field == 'engineOil' else 'z. B. 75W90' }}">
+                    </div>
+                {% endfor %}
+            </div>
+        </fieldset>
+
         <div class="field">
             <label for="history-description">Beschreibung</label>
             <textarea id="history-description" name="description" rows="5" placeholder="Details zu den Arbeiten, verwendeten Teilen oder Auffälligkeiten …">{{ formValues.description }}</textarea>

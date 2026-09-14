@@ -124,6 +124,53 @@ class ServiceHistoryTests(unittest.TestCase):
         context = next(context for name, context in templates if name == "vehicle.html")
         return [entry.id for entry in context["historyEntries"]]
 
+    def test_oils_follow_latest_dated_entry_and_revert_after_edit_and_delete(self):
+        self.vehicle.engineOil = "15W40"
+        db.session.commit()
+        newer = self.create_entry(date="2025-01-01", engineOil=" 10W40 ", works=[])
+        older = self.create_entry(date="2024-01-01", engineOil="5W30", gearboxOil="75W90")
+        self.create_entry(date="2026-01-01")
+        self.assertEqual(newer.engineOil, "10W40")
+        self.assertIn("engine_oil", newer.works)
+        self.assertIn("gearbox_oil", older.works)
+        with captured_templates() as templates:
+            response = self.client.get(f"/vehicle/{self.vehicle.id}?q=no-match")
+        context = next(c for name, c in templates if name == "vehicle.html")
+        self.assertEqual(context["latestOils"]["engineOil"], newer)
+        self.assertEqual(context["latestOils"]["gearboxOil"], older)
+        self.assertEqual(context["historyEntries"], [])
+        self.assertIn(f'href="/vehicle/{self.vehicle.id}#history-entry-{newer.id}"', response.get_data(as_text=True))
+        edit_html = self.client.get(self.entry_url(newer, "edit")).get_data(as_text=True)
+        self.assertIn('value="10W40"', edit_html)
+        self.client.post(self.entry_url(newer, "edit"), data=self.form_data(engineOil=""))
+        with captured_templates() as templates:
+            self.client.get(f"/vehicle/{self.vehicle.id}")
+        self.assertEqual(templates[-1][1]["latestOils"]["engineOil"], older)
+        self.client.post(self.entry_url(older, "delete"))
+        with captured_templates() as templates:
+            response = self.client.get(f"/vehicle/{self.vehicle.id}")
+        self.assertIsNone(templates[-1][1]["latestOils"]["engineOil"])
+        self.assertIn("15W40", response.get_data(as_text=True))
+
+    def test_oil_length_validation_preserves_input(self):
+        response = self.client.post(self.add_url(), data=self.form_data(engineOil="x" * 51))
+        self.assertIn("höchstens 50 Zeichen", response.get_data(as_text=True))
+        self.assertEqual(ServiceHistoryEntry.query.count(), 0)
+
+    def test_initialization_migrates_old_history_oil_columns(self):
+        from sqlalchemy import text
+        entry = self.create_entry()
+        entry_id = entry.id
+        db.session.remove()
+        with db.engine.begin() as connection:
+            for field in ("engineOil", "gearboxOil", "diffOil"):
+                connection.execute(text(f'ALTER TABLE service_history_entry DROP COLUMN "{field}"'))
+        initializeDatabase()
+        initializeDatabase()
+        entry = db.session.get(ServiceHistoryEntry, entry_id)
+        self.assertIsNone(entry.engineOil)
+        self.assertEqual(entry.mileage, 125000)
+
     def test_create_edit_delete_with_multiple_categories_works_and_orders(self):
         self.assertEqual(self.client.get(self.add_url()).status_code, 200)
         entry = self.create_entry()
@@ -248,7 +295,7 @@ class ServiceHistoryTests(unittest.TestCase):
         first = self.create_entry(date="2024-01-01", mileage="80000")
         last = self.create_entry(
             date="2026-01-01", mileage="125000", categories=["tires"],
-            works=["tire_change"], description="Sommerreifen montiert",
+            works=["wheel_change"], description="Sommerreifen montiert",
         )
         self.client.post(
             self.add_url(self.other_vehicle),
@@ -261,8 +308,8 @@ class ServiceHistoryTests(unittest.TestCase):
         for filters, visible_ids in (
             ({}, [last.id, first.id]),
             ({"category": "service"}, [first.id]),
-            ({"work": "tire_change"}, [last.id]),
-            ({"category": "tires", "work": "tire_change", "q": "Sommer"}, [last.id]),
+            ({"work": "wheel_change"}, [last.id]),
+            ({"category": "tires", "work": "wheel_change", "q": "Sommer"}, [last.id]),
             ({"q": "kein passender Eintrag"}, []),
         ):
             with self.subTest(filters=filters), captured_templates() as templates:
@@ -283,7 +330,7 @@ class ServiceHistoryTests(unittest.TestCase):
         )
         self.create_entry(
             date=(today - timedelta(days=10)).isoformat(), mileage="2000",
-            categories=["tires"], works=["tire_change"],
+            categories=["tires"], works=["wheel_change"],
         )
         for filters in ({}, {"category": "service"}, {"q": "kein Treffer"}):
             with self.subTest(filters=filters), captured_templates() as templates:
@@ -354,7 +401,7 @@ class ServiceHistoryTests(unittest.TestCase):
 
     def test_technician_can_manage_history(self):
         self.login(self.technician)
-        entry = self.create_entry(categories=["inspection"], works=["spark_plugs"])
+        entry = self.create_entry(categories=["inspection"], works=["spark_glow_plugs"])
         response = self.client.post(
             self.entry_url(entry, "edit"), data=self.form_data(description="Geprüft"),
         )
@@ -438,7 +485,7 @@ class ServiceHistoryTests(unittest.TestCase):
         self.assertEqual(len(entry.orders), 2)
 
     def test_backup_roundtrip_remaps_order_ids_and_preserves_history(self):
-        self.create_entry()
+        self.create_entry(engineOil="10W40")
         with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
             file_path = Path(directory) / "backup.json"
             exportJson(file_path)
@@ -457,6 +504,7 @@ class ServiceHistoryTests(unittest.TestCase):
         self.assertEqual(entry.date, date(2024, 2, 29))
         self.assertEqual(entry.mileage, 125000)
         self.assertEqual(entry.description, "Ölwechsel und Reparatur durchgeführt.")
+        self.assertEqual(entry.engineOil, "10W40")
         self.assertEqual(set(entry.categories), {"service", "repair"})
         self.assertEqual(set(entry.works), {"engine_oil", "oil_filter", "air_filter"})
         self.assertEqual({order.id for order in entry.orders}, {order.id for order in imported.orders})

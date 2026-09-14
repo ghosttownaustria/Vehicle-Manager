@@ -124,6 +124,11 @@
                                 {% endif %}
                             {% endfor %}
                         </div>
+                        {% for field, label, work in historyOilFields %}
+                            {% if entry[field] %}
+                                <p><strong>{{ label }}:</strong> {{ entry[field] }}</p>
+                            {% endif %}
+                        {% endfor %}
                         {% if entry.description %}
                             <p class="history-description">{{ entry.description }}</p>
                         {% endif %}

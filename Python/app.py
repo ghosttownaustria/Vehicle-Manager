@@ -1,5 +1,7 @@
 import os
+import re
 from datetime import date, datetime
+from decimal import Decimal
 from functools import wraps
 
 from flask import (
@@ -15,6 +17,7 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from brandLogos import brandLogoUrl
 from historyProjection import projectMileage
+from fuelStatistics import buildFuelStatistics
 from pdfReports import buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import selectinload
@@ -76,6 +79,7 @@ SERVICE_CATEGORIES = [
     {"value": "repair", "label": "Reparatur", "symbol": "🔧"},
     {"value": "tires", "label": "Reifenwechsel", "symbol": "◉"},
     {"value": "inspection", "label": "§57a / Pickerl", "symbol": "§"},
+    {"value": "purchase", "label": "Fahrzeugkauf", "symbol": "🔑"},
     {"value": "other", "label": "Sonstiges", "symbol": "•"},
 ]
 STANDARD_WORK_OPTIONS = [
@@ -252,6 +256,13 @@ class Vehicle(db.Model):
         cascade="all, delete-orphan",
         order_by="(ServiceHistoryEntry.date.desc(), ServiceHistoryEntry.id.desc())",
     )
+    fuelEntries = db.relationship(
+        "FuelEntry",
+        backref="vehicle",
+        lazy=True,
+        cascade="all, delete-orphan",
+        order_by="(FuelEntry.date, FuelEntry.id)",
+    )
 
     @property
     def displayName(self):
@@ -341,6 +352,31 @@ class ServiceHistoryEntry(db.Model):
         db.CheckConstraint(
             "mileage >= 0 AND mileage <= 2147483647",
             name="service_history_mileage_range",
+        ),
+    )
+
+
+class FuelEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    vehicle_id = db.Column(
+        db.Integer, db.ForeignKey("vehicle.id"), nullable=False, index=True,
+    )
+    date = db.Column(db.Date, nullable=False)
+    liters = db.Column(db.Numeric(10, 3), nullable=False)
+    mileage = db.Column(db.Integer)
+    price = db.Column(db.Numeric(12, 2))
+    isFullTank = db.Column(db.Boolean, nullable=False, default=False)
+    __table_args__ = (
+        db.CheckConstraint(
+            "liters > 0 AND liters <= 9999999.999", name="fuel_liters_range",
+        ),
+        db.CheckConstraint(
+            "mileage IS NULL OR (mileage >= 0 AND mileage <= 2147483647)",
+            name="fuel_mileage_range",
+        ),
+        db.CheckConstraint(
+            "price IS NULL OR (price >= 0 AND price <= 9999999999.99)",
+            name="fuel_price_range",
         ),
     )
 
@@ -537,6 +573,64 @@ def validateServiceHistoryData(dateValue, mileageValue, categories, works):
         [value for value in categoryValues if value in categories],
         [value for value in workValues if value in works],
     )
+
+
+def validateFuelEntryData(dateValue, litersValue, mileageValue, priceValue, isFullTankValue):
+    """Share strict validation between tank-book forms and JSON imports."""
+    try:
+        parsedDate = date.fromisoformat(dateValue)
+        if parsedDate.isoformat() != dateValue:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise ValueError("Bitte ein gültiges Datum im Format JJJJ-MM-TT angeben.")
+
+    def parseDecimal(value, label, places, maximum, optional=False):
+        if optional and (value is None or value == ""):
+            return None
+        numberText = str(value).strip().replace(",", ".")
+        if len(numberText) > 25 or not re.fullmatch(
+            rf"[0-9]+(?:\.[0-9]{{1,{places}}})?", numberText,
+        ):
+            raise ValueError(
+                f"{label}: Bitte eine Zahl mit höchstens {places} Nachkommastellen "
+                "ohne Tausendertrennzeichen angeben."
+            )
+        number = Decimal(numberText)
+        if number > Decimal(maximum) or (not optional and number <= 0):
+            raise ValueError(
+                f"{label}: Bitte einen Wert {'ab 0' if optional else 'größer als 0'} "
+                f"bis {maximum.replace('.', ',')} angeben."
+            )
+        return number
+
+    liters = parseDecimal(litersValue, "Menge (Liter)", 3, "9999999.999")
+    price = parseDecimal(priceValue, "Gesamtpreis (€)", 2, "9999999999.99", optional=True)
+    mileage = None
+    if mileageValue is not None and mileageValue != "":
+        mileageText = str(mileageValue).strip()
+        if (
+            not re.fullmatch(r"[0-9]{1,10}", mileageText)
+            or int(mileageText) > 2147483647
+        ):
+            raise ValueError(
+                "Bitte einen ganzen Kilometerstand zwischen 0 und 2147483647 "
+                "ohne Tausendertrennzeichen angeben."
+            )
+        mileage = int(mileageText)
+
+    if isinstance(isFullTankValue, bool):
+        isFullTank = isFullTankValue
+    elif isinstance(isFullTankValue, str) and isFullTankValue in {
+        "", "on", "true", "false", "1", "0",
+    }:
+        isFullTank = isFullTankValue in {"on", "true", "1"}
+    else:
+        raise ValueError("Bitte eine gültige Angabe zur Volltankung machen.")
+
+    return {
+        "date": parsedDate, "liters": liters, "mileage": mileage,
+        "price": price, "isFullTank": isFullTank,
+    }
 
 
 def currentUser():
@@ -808,6 +902,13 @@ def currencyFilter(value):
 @app.template_filter("dateTime")
 def dateTimeFilter(value):
     return value.strftime("%d.%m.%Y %H:%M") if value else "–"
+
+
+@app.template_filter("fuelNumber")
+def fuelNumberFilter(value, places=2):
+    if value is None:
+        return "–"
+    return f"{value:,.{places}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 @app.template_filter("userList")
@@ -1110,6 +1211,7 @@ def vehicle(vehicleId):
         result=result,
         historyEntries=historyEntries,
         historyTotal=historyTotal,
+        fuelStatistics=buildFuelStatistics(vehicleItem.fuelEntries),
         latestOils=latestOils,
         historyOilFields=HISTORY_OIL_FIELDS,
         historyCurvePoints=historyCurvePoints,
@@ -1272,6 +1374,81 @@ def deleteServiceHistory(vehicleId, entryId):
     flash("Historieneintrag wurde gelöscht.", "success")
     return redirect(url_for(
         "vehicle", vehicleId=vehicleId, _anchor="service-history",
+    ))
+
+
+def fuelEntryForm(vehicleItem, entry=None):
+    formValues = {
+        "date": entry.date.isoformat() if entry else date.today().isoformat(),
+        "liters": str(entry.liters) if entry else "",
+        "mileage": str(entry.mileage) if entry and entry.mileage is not None else "",
+        "price": str(entry.price) if entry and entry.price is not None else "",
+        "isFullTank": entry.isFullTank if entry else False,
+    }
+    formErrors = []
+    if request.method == "POST":
+        formValues = {
+            key: request.form.get(key, "").strip()
+            for key in ("date", "liters", "mileage", "price")
+        }
+        fullTankValue = request.form.get("isFullTank", "")
+        formValues["isFullTank"] = fullTankValue in {"on", "true", "1"}
+        try:
+            values = validateFuelEntryData(
+                formValues["date"], formValues["liters"], formValues["mileage"],
+                formValues["price"], fullTankValue,
+            )
+        except ValueError as error:
+            formErrors.append(str(error))
+        else:
+            if entry is None:
+                entry = FuelEntry(vehicle=vehicleItem)
+                db.session.add(entry)
+            for field, value in values.items():
+                setattr(entry, field, value)
+            db.session.commit()
+            flash("Tankbucheintrag wurde gespeichert.", "success")
+            return redirect(url_for(
+                "vehicle", vehicleId=vehicleItem.id, _anchor="fuel-statistics",
+            ))
+
+    return render_template(
+        "fuel_entry_form.html", vehicle=vehicleItem, entry=entry,
+        formValues=formValues, formErrors=formErrors,
+    ), 400 if formErrors else 200
+
+
+@app.route("/vehicle/<int:vehicleId>/fuel/add", methods=["GET", "POST"])
+@loginRequired
+def addFuelEntry(vehicleId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+    return fuelEntryForm(vehicleItem)
+
+
+@app.route("/vehicle/<int:vehicleId>/fuel/<int:entryId>/edit", methods=["GET", "POST"])
+@loginRequired
+def editFuelEntry(vehicleId, entryId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+    entry = FuelEntry.query.filter_by(id=entryId, vehicle_id=vehicleId).first_or_404()
+    return fuelEntryForm(vehicleItem, entry)
+
+
+@app.route("/vehicle/<int:vehicleId>/fuel/<int:entryId>/delete", methods=["POST"])
+@loginRequired
+def deleteFuelEntry(vehicleId, entryId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+    entry = FuelEntry.query.filter_by(id=entryId, vehicle_id=vehicleId).first_or_404()
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Tankbucheintrag wurde gelöscht.", "success")
+    return redirect(url_for(
+        "vehicle", vehicleId=vehicleId, _anchor="fuel-statistics",
     ))
 
 

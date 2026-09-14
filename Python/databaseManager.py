@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 
 from app import (
     Cost,
+    FuelEntry,
     HISTORY_OIL_FIELDS,
     Income,
     Order,
@@ -24,6 +25,7 @@ from app import (
     initializeDatabase,
     parseRole,
     parseHistoryOils,
+    validateFuelEntryData,
     validateServiceHistoryData,
 )
 
@@ -258,6 +260,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
             ),
             "orders": [],
             "serviceHistory": [],
+            "fuelEntries": [],
         }
 
         for order in vehicle.orders:
@@ -334,6 +337,16 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                     "orderIds": sorted(order.id for order in entry.orders),
                 }
             )
+        for entry in sorted(vehicle.fuelEntries, key=lambda item: (item.date, item.id)):
+            vehicleData["fuelEntries"].append(
+                {
+                    "date": entry.date.isoformat(),
+                    "liters": str(entry.liters),
+                    "mileage": entry.mileage,
+                    "price": str(entry.price) if entry.price is not None else None,
+                    "isFullTank": bool(entry.isFullTank),
+                }
+            )
         data.append(vehicleData)
 
     filePath.write_text(
@@ -402,6 +415,26 @@ def importServiceHistory(vehicle, historyData, sourceOrderMap):
     return len(historyData)
 
 
+def importFuelEntries(vehicle, fuelData):
+    if not isinstance(fuelData, list):
+        raise ValueError("Das Tankbuch muss eine Liste sein.")
+    for index, entryData in enumerate(fuelData, start=1):
+        if not isinstance(entryData, dict):
+            raise ValueError(f"Tankbuch-Eintrag {index} ist kein JSON-Objekt.")
+        try:
+            fields = validateFuelEntryData(
+                entryData.get("date"),
+                entryData.get("liters"),
+                entryData.get("mileage"),
+                entryData.get("price"),
+                entryData.get("isFullTank", False),
+            )
+        except ValueError as error:
+            raise ValueError(f"Tankbuch-Eintrag {index}: {error}") from error
+        vehicle.fuelEntries.append(FuelEntry(**fields))
+    return len(fuelData)
+
+
 def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
     """Import old and new exports without requiring new status fields."""
     filePath = Path(filePath)
@@ -423,6 +456,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
     orderCount = 0
     entryCount = 0
     historyCount = 0
+    fuelCount = 0
     print(f"Import gestartet: {vehicleCount} Fahrzeuge aus {filePath.name}")
 
     try:
@@ -569,6 +603,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                     vehicleData.get("serviceHistory", []),
                     sourceOrderMap,
                 )
+                fuelCount += importFuelEntries(vehicle, vehicleData.get("fuelEntries", []))
                 print(
                     f"  [{index}/{vehicleCount}] "
                     f"{vehicle.displayName or 'Unbenanntes Fahrzeug'}"
@@ -603,7 +638,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
     print(
         f"Import abgeschlossen: {vehicleCount} Fahrzeuge, "
         f"{orderCount} Aufträge, {entryCount} Buchungen "
-        f"und {historyCount} Historien-Einträge."
+        f"sowie {historyCount} Historien-Einträge und {fuelCount} Tankbuch-Einträge."
     )
     return True
 

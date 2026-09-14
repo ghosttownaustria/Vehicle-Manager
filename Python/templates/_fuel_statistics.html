@@ -1,0 +1,124 @@
+<section class="card fuel-statistics" id="fuel-statistics" aria-labelledby="fuel-heading">
+    <div class="card-header fuel-header">
+        <div>
+            <h2 id="fuel-heading">Spritverbrauch</h2>
+            <p class="muted fuel-intro">Tankbuch und Verbrauch zwischen zwei Volltankungen</p>
+        </div>
+        {% if currentUser.canModifyVehicles %}
+            <a class="btn btn-primary" href="{{ url_for('addFuelEntry', vehicleId=vehicle.id) }}">Neue Tankung</a>
+        {% endif %}
+    </div>
+
+    {% set summary = fuelStatistics.summary %}
+    {% if fuelStatistics.rows %}
+        <dl class="fuel-summary">
+            <div class="fuel-stat fuel-stat-primary">
+                <dt>Ø Verbrauch</dt>
+                <dd>{{ summary.averageConsumption|fuelNumber(3) }} <span>l/100 km</span></dd>
+                <dd class="fuel-stat-note">{{ summary.intervalCount }} {{ 'berechnetes Intervall' if summary.intervalCount == 1 else 'berechnete Intervalle' }}</dd>
+            </div>
+            <div class="fuel-stat">
+                <dt>Berechnete Strecke</dt>
+                <dd>{{ summary.distance|fuelNumber(0) }} <span>km</span></dd>
+                <dd class="fuel-stat-note">Zwischen Volltankungen mit Kilometerstand</dd>
+            </div>
+            <div class="fuel-stat">
+                <dt>Insgesamt getankt</dt>
+                <dd>{{ summary.totalLiters|fuelNumber(3) }} <span>l</span></dd>
+                <dd class="fuel-stat-note">{{ summary.count }} {{ 'Tankung' if summary.count == 1 else 'Tankungen' }} erfasst</dd>
+            </div>
+            <div class="fuel-stat">
+                <dt>Erfasste Tankkosten</dt>
+                <dd>{{ summary.totalPrice|fuelNumber(2) }} <span>€</span></dd>
+                <dd class="fuel-stat-note">{% if summary.missingPriceCount %}{{ summary.missingPriceCount }} {{ 'Preisangabe fehlt' if summary.missingPriceCount == 1 else 'Preisangaben fehlen' }}{% else %}Alle Tankungen mit Preisangabe{% endif %}</dd>
+            </div>
+            <div class="fuel-stat">
+                <dt>Ø Preis pro Liter</dt>
+                <dd>{{ summary.averagePricePerLiter|fuelNumber(3) }} <span>€/l</span></dd>
+                <dd class="fuel-stat-note">Nur Tankungen mit Preisangabe</dd>
+            </div>
+            <div class="fuel-stat">
+                <dt>Ø Kosten pro Kilometer</dt>
+                <dd>{{ summary.averageCentsPerKm|fuelNumber(3) }} <span>ct/km</span></dd>
+                <dd class="fuel-stat-note">Nur berechenbar mit vollständigen Intervallpreisen</dd>
+            </div>
+        </dl>
+
+        {% if not summary.intervalCount %}
+            <p class="fuel-notice">Für den ersten Verbrauchswert brauchst du zwei Volltankungen mit steigendem Kilometerstand. Teilfüllungen dazwischen werden mitgerechnet.</p>
+        {% endif %}
+
+        <div class="fuel-table-heading">
+            <h3>Tankungen</h3>
+            <p class="hint fuel-scroll-hint">Tabelle bei Bedarf seitlich scrollen.</p>
+        </div>
+        <div class="table-wrap fuel-table-wrap" tabindex="0" role="region" aria-label="Tankbuch mit Verbrauchsintervallen" aria-describedby="fuel-calculation-hint">
+            <table class="fuel-table">
+                <caption class="fuel-sr-only">Tankungen in zeitlicher Reihenfolge. Die Verbrauchswerte stehen bei der abschließenden Volltankung.</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Datum</th>
+                        <th scope="col" class="number">Liter</th>
+                        <th scope="col" class="number">KM-Stand</th>
+                        <th scope="col" class="number">Preis <span>€ gesamt</span></th>
+                        <th scope="col">Volltankung</th>
+                        <th scope="col" class="number fuel-interval-start">Intervall <span>Liter</span></th>
+                        <th scope="col" class="number">Intervall <span>km</span></th>
+                        <th scope="col" class="number">Verbrauch <span>l/100 km</span></th>
+                        <th scope="col" class="number">Kosten <span>ct/km</span></th>
+                        {% if currentUser.canModifyVehicles %}<th scope="col">Aktionen</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in fuelStatistics.rows %}
+                        {% set tank = row.entry %}
+                        {% set interval = row.interval %}
+                        <tr id="fuel-entry-{{ tank.id }}" class="{{ 'fuel-completed' if interval else '' }}">
+                            <th scope="row"><time datetime="{{ tank.date.isoformat() }}">{{ tank.date.strftime('%d.%m.%Y') }}</time></th>
+                            <td class="number">{{ tank.liters|fuelNumber(3) }}</td>
+                            <td class="number">{{ tank.mileage|fuelNumber(0) }}</td>
+                            <td class="number">{{ tank.price|fuelNumber(2) }}</td>
+                            <td class="fuel-status">
+                                {% if tank.isFullTank %}
+                                    <span class="badge fuel-full">Voll</span>
+                                    {% if row.isBaseline %}<span class="fuel-row-note">Startpunkt</span>
+                                    {% elif tank.mileage is none %}<span class="fuel-row-note">Ohne KM-Stand</span>{% endif %}
+                                {% else %}
+                                    <span class="fuel-partial">Teilfüllung</span>
+                                {% endif %}
+                            </td>
+                            <td class="number fuel-interval-start">{{ interval.liters|fuelNumber(3) if interval else '–' }}</td>
+                            <td class="number">{{ interval.distance|fuelNumber(0) if interval else '–' }}</td>
+                            <td class="number fuel-consumption">{{ interval.consumption|fuelNumber(3) if interval else '–' }}</td>
+                            <td class="number">{{ interval.centsPerKm|fuelNumber(3) if interval else '–' }}</td>
+                            {% if currentUser.canModifyVehicles %}
+                                <td>
+                                    <div class="fuel-entry-actions">
+                                        <a class="btn btn-secondary btn-sm" href="{{ url_for('editFuelEntry', vehicleId=vehicle.id, entryId=tank.id) }}" aria-label="Tankung vom {{ tank.date.strftime('%d.%m.%Y') }} bearbeiten">Bearbeiten</a>
+                                        <form method="post" action="{{ url_for('deleteFuelEntry', vehicleId=vehicle.id, entryId=tank.id) }}" onsubmit="return confirm('Diese Tankung löschen? Die Verbrauchswerte werden neu berechnet.');">
+                                            <button class="btn btn-secondary btn-sm fuel-delete" type="submit" aria-label="Tankung vom {{ tank.date.strftime('%d.%m.%Y') }} löschen">Löschen</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty fuel-empty">
+            <strong>Noch keine Tankungen erfasst.</strong>
+            <p>Erfasse Menge und Datum deiner Tankungen. Mit zwei Volltankungen und ihren Kilometerständen wird dein erster Verbrauch berechnet.</p>
+        </div>
+    {% endif %}
+
+    <details class="fuel-explanation" {% if not fuelStatistics.rows %}open{% endif %}>
+        <summary>So wird der Spritverbrauch berechnet</summary>
+        <div id="fuel-calculation-hint">
+            <p>Eine Volltankung mit Kilometerstand ist der Startpunkt. Bis zur nächsten Volltankung mit Kilometerstand werden alle danach getankten Liter addiert, einschließlich der abschließenden Volltankung. Die Tankmenge am Startpunkt gehört nicht zum neuen Intervall.</p>
+            <p><strong>Verbrauch = Intervall-Liter ÷ gefahrene Kilometer × 100.</strong> Teilfüllungen und Tankungen ohne Kilometerstand werden mitgerechnet. Bei fehlender oder nicht positiver Strecke sowie bei sinkenden Kilometerständen innerhalb eines Intervalls erscheint kein Verbrauchswert. Die nächste Volltankung mit Kilometerstand setzt dann einen neuen Startpunkt. Fehlt in einem Intervall ein Preis, bleiben dessen Kosten pro Kilometer offen.</p>
+            <p>Der Durchschnittsverbrauch ergibt sich aus allen berechneten Intervall-Litern und deren Gesamtstrecke. Noch offene Intervalle zählen nicht dazu. Die Tabelle ist nach Datum sortiert; bei gleichem Datum gilt die Erfassungsreihenfolge.</p>
+        </div>
+    </details>
+</section>

@@ -10,7 +10,7 @@ ein Klick oder Antippen öffnet die vollständige Beschreibung, Arbeiten und
 verknüpften Aufträge. Dicht beieinanderliegende Einträge werden als Punkt mit
 Anzahl zusammengefasst und lassen sich gemeinsam öffnen. Über **Neuer
 Historieneintrag** können Techniker und Admins mehrere Kategorien (z. B. Service
-und Reparatur), Standardarbeiten und offene oder geschlossene Aufträge desselben
+und Reparatur oder Fahrzeugkauf), Standardarbeiten und offene oder geschlossene Aufträge desselben
 Fahrzeugs auswählen. Kategorien haben eigene Farben und Symbole. Einträge lassen
 sich anschließend bearbeiten oder löschen; verknüpfte Aufträge bleiben erhalten.
 Kunden können die Historie ihrer zugewiesenen Fahrzeuge ansehen.
@@ -41,6 +41,41 @@ Integrationstests mit einer isolierten Datenbank aus dem Projektverzeichnis:
 ```sh
 python -m unittest discover -s Python/tests -v
 ```
+
+## Tankbuch und Spritverbrauch im Python-Projekt
+
+Auf jeder Fahrzeugseite gibt es unter der Servicehistorie den Bereich
+**Spritverbrauch** mit Tankbuch. Techniker und Admins können Tankungen hinzufügen,
+bearbeiten und löschen; Kunden sehen die Tankdaten ihrer zugewiesenen Fahrzeuge.
+Pflichtangaben sind **Menge in Litern** und **Datum**. Optional sind der absolute
+**Kilometerstand**, der **Gesamtpreis in Euro** (nicht der Literpreis) und die
+Markierung **Volltankung**. Dezimalzahlen können mit Komma oder Punkt eingegeben
+werden, ohne Tausendertrennzeichen. Liter erlauben drei, Preise zwei Nachkommastellen.
+
+Die erste Volltankung mit Kilometerstand dient als Ausgangspunkt. Bis zur
+nächsten Volltankung mit Kilometerstand werden alle danach getankten Liter
+einschließlich der abschließenden Volltankung addiert. Teilfüllungen und
+Volltankungen ohne Kilometerstand zählen dabei mit. Die Liter der ersten
+Volltankung gehören nicht zum Verbrauchsintervall. Beispiel: Nach der Volltankung
+bei 100.000 km werden 20 Liter nachgefüllt und bei 100.500 km nochmals 30 Liter
+vollgetankt. Daraus ergeben sich 50 Liter auf 500 km, also **10 l/100 km**.
+
+Die Tabelle zeigt pro Tankung die Eingaben und bei abgeschlossenen Intervallen
+Liter, Strecke, l/100 km und ct/km. Der Durchschnittsverbrauch wird über die
+Gesamtstrecke der gültigen Intervalle gewichtet. Fehlende Preise ergeben keinen
+Kostenwert pro Kilometer; der durchschnittliche Literpreis berücksichtigt nur
+Tankungen mit bekanntem Gesamtpreis. Die Übersicht zeigt außerdem alle getankten
+Liter, die bekannten Gesamtkosten und die ausgewertete Strecke.
+
+Offene Intervalle zählen noch nicht zum Durchschnittsverbrauch. Bei gleichem Datum
+gilt die Reihenfolge der Erfassung. Bei sinkenden Kilometerständen oder einer
+Intervallstrecke von null wird kein Verbrauch berechnet; die nächste Volltankung
+mit Kilometerstand dient als neuer Ausgangspunkt. Nach Bearbeiten oder Löschen
+werden alle Werte automatisch neu berechnet.
+
+Die Tankbuchtabelle wird beim nächsten Start automatisch angelegt; vorhandene
+Daten bleiben erhalten. Das Tankbuch ist im JSON-Export und -Import enthalten.
+Ältere Sicherungen ohne Tankbuch lassen sich weiterhin importieren.
 
 ## Markenlogos im Python-Projekt
 

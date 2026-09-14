@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Tankung bearbeiten' if entry else 'Neue Tankung' }} · Vehicle Manager{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='fuel_statistics.css') }}">
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ 'Tankung bearbeiten' if entry else 'Neue Tankung' }}</h1>
+        <p>{{ vehicleName(vehicle) }} · {{ vehicle.licensePlate or 'Kein Kennzeichen' }}</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='fuel-statistics') }}">Zum Spritverbrauch</a>
+</div>
+
+{% if formErrors %}
+    <div class="alert alert-danger" role="alert">
+        <strong>Bitte prüfe deine Angaben:</strong>
+        <ul class="fuel-form-errors">{% for error in formErrors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+{% endif %}
+
+<div class="card fuel-form-card">
+    <form method="post" class="fuel-form">
+        <p class="hint fuel-required-hint">Menge und Datum sind Pflichtangaben. Alle weiteren Angaben sind optional.</p>
+        <div class="grid">
+            <div class="field span-6">
+                <label for="fuel-liters">Menge (Liter) *</label>
+                <input id="fuel-liters" type="text" name="liters" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,3})?" maxlength="11" value="{{ formValues.liters }}" placeholder="z. B. 42,50" aria-describedby="fuel-liters-hint" required>
+                <p class="hint" id="fuel-liters-hint">Mehr als 0 Liter, bis zu 3 Nachkommastellen.</p>
+            </div>
+            <div class="field span-6">
+                <label for="fuel-date">Datum *</label>
+                <input id="fuel-date" type="date" name="date" value="{{ formValues.date }}" required>
+            </div>
+            <div class="field span-6">
+                <label for="fuel-mileage">Kilometerstand (km) <span class="fuel-optional">optional</span></label>
+                <input id="fuel-mileage" type="number" name="mileage" inputmode="numeric" min="0" max="2147483647" step="1" value="{{ formValues.mileage }}" placeholder="z. B. 216867" aria-describedby="fuel-mileage-hint">
+                <p class="hint" id="fuel-mileage-hint">Gesamter Kilometerstand, ohne Tausendertrennzeichen.</p>
+            </div>
+            <div class="field span-6">
+                <label for="fuel-price">Gesamtpreis (€) <span class="fuel-optional">optional</span></label>
+                <input id="fuel-price" type="text" name="price" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,2})?" maxlength="13" value="{{ formValues.price }}" placeholder="z. B. 65,80" aria-describedby="fuel-price-hint">
+                <p class="hint" id="fuel-price-hint">Gesamtbetrag dieser Tankung, bis zu 2 Nachkommastellen.</p>
+            </div>
+        </div>
+
+        <label class="checkbox-item fuel-full-choice" for="fuel-is-full">
+            <input id="fuel-is-full" type="checkbox" name="isFullTank" value="1" {{ 'checked' if formValues.isFullTank else '' }} aria-describedby="fuel-full-hint">
+            <span>Volltankung – Tank vollständig gefüllt</span>
+        </label>
+        <p class="hint" id="fuel-full-hint">Für ein Verbrauchsintervall sind zwei Volltankungen mit Kilometerstand nötig. Dazwischen liegende Teilfüllungen werden automatisch addiert, auch ohne Kilometerstand. Die erste Volltankung mit Kilometerstand setzt den Startpunkt.</p>
+        <p class="hint">Bei mehreren Tankungen am selben Tag gilt die Erfassungsreihenfolge.</p>
+
+        <div class="actions fuel-form-actions">
+            <button class="btn btn-primary" type="submit">{{ 'Änderungen speichern' if entry else 'Tankung speichern' }}</button>
+            <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='fuel-statistics') }}">Abbrechen</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

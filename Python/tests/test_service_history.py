@@ -261,6 +261,56 @@ class ServiceHistoryTests(unittest.TestCase):
         self.assertEqual(entry.works, ["engine_oil"])
         self.assertEqual([order.id for order in entry.orders], [self.first_order.id])
 
+    def test_vehicle_purchase_category_form_filter_print_and_backup(self):
+        form_html = self.client.get(self.add_url()).get_data(as_text=True)
+        self.assertIn('name="categories" value="purchase"', form_html)
+        self.assertIn("Fahrzeugkauf", form_html)
+        purchase = self.create_entry(
+            categories=["purchase"], works=[], orderIds=[],
+            description="Fahrzeug übernommen", date="2024-01-01",
+        )
+        self.create_entry(date="2025-01-01")
+        self.assertEqual(purchase.categories, ["purchase"])
+        self.assertEqual(purchase.works, [])
+        self.assertEqual(self.history_ids(category="purchase"), [purchase.id])
+        edit_html = self.client.get(self.entry_url(purchase, "edit")).get_data(as_text=True)
+        self.assertIn('name="categories" value="purchase" checked', edit_html)
+
+        for url in (
+            f"/vehicle/{self.vehicle.id}?category=purchase",
+            f"/vehicle/{self.vehicle.id}/history/print",
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                html = response.get_data(as_text=True)
+                self.assertRegex(
+                    html,
+                    r'history-chart-legend-symbol history-category-purchase"[^>]*>'
+                    r'[^<]*</span>Fahrzeugkauf</span>',
+                )
+                self.assertIn('class="badge history-category-purchase">Fahrzeugkauf</span>', html)
+
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            file_path = Path(directory) / "purchase.json"
+            exportJson(file_path)
+            exported = json.loads(file_path.read_text(encoding="utf-8"))
+            exported_vehicle = next(item for item in exported if item["vin"] == "TEST-ONE")
+            exported_purchase = next(
+                item for item in exported_vehicle["serviceHistory"]
+                if item["description"] == "Fahrzeug übernommen"
+            )
+            self.assertEqual(exported_purchase["categories"], ["purchase"])
+            self.assertEqual(exported_purchase["works"], [])
+            self.assertTrue(importJson(file_path))
+        imported = Vehicle.query.filter_by(vin="TEST-ONE").order_by(Vehicle.id.desc()).first()
+        self.assertNotEqual(imported.id, self.vehicle.id)
+        imported_purchase = next(
+            item for item in imported.serviceHistory if item.description == "Fahrzeug übernommen"
+        )
+        self.assertEqual(imported_purchase.categories, ["purchase"])
+        self.assertEqual(imported_purchase.works, [])
+
     def test_timeline_filters_combine_and_do_not_include_other_vehicles(self):
         mixed = self.create_entry(
             date="2024-01-01", description="Ölwechsel: Ölfilter 100%_ erledigt. Straße",

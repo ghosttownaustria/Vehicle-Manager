@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vehicle-manager",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-m", "flask", "--app", "Python/app.py", "run", "--port", "5050"],
+      "port": 5050
+    }
+  ]
+}

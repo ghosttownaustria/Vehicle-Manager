@@ -7,23 +7,23 @@
 .fuel-stat dd { margin: 6px 0; font-size: clamp(1.2rem, 2vw, 1.55rem); font-weight: 760; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .fuel-stat dd span { font-size: .84rem; font-weight: 600; white-space: nowrap; }
 .fuel-stat .fuel-stat-note { margin: 0; color: var(--muted); font-size: .76rem; font-weight: 400; }
-.fuel-stat-primary { border-color: #b2ccff; background: #f5f9ff; }
-.fuel-stat-primary dd { color: #1849a9; }
-.fuel-notice { padding: 12px 14px; border: 1px solid #b2ddff; border-radius: 9px; color: #175cd3; background: var(--info-soft); font-size: .87rem; }
+.fuel-stat-primary { border-color: var(--accent-soft-border); background: var(--accent-soft); }
+.fuel-stat-primary dd { color: var(--accent-soft-text); }
+.fuel-notice { padding: 12px 14px; border: 1px solid var(--info-border); border-radius: 9px; color: var(--info-text); background: var(--info-soft); font-size: .87rem; }
 .fuel-table-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; }
 .fuel-table-heading h3, .fuel-table-heading .hint { margin: 0; }
 .fuel-table-wrap { border: 1px solid var(--line); border-radius: 11px; max-width: 100%; }
 .fuel-table-wrap:focus-visible { outline: 3px solid rgba(21, 94, 239, .3); outline-offset: 3px; }
 .fuel-table { min-width: 1020px; font-size: .82rem; font-variant-numeric: tabular-nums; }
-.fuel-table thead th { background: #eef2f6; font-size: .74rem; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+.fuel-table thead th { background: var(--surface-soft); font-size: .74rem; text-transform: none; letter-spacing: 0; white-space: nowrap; }
 .fuel-table thead th span { display: block; font-size: .7rem; font-weight: 500; }
 .fuel-table th, .fuel-table td { padding: 11px 10px; }
 .fuel-table tbody th { text-transform: none; letter-spacing: 0; font-size: inherit; color: var(--text); font-weight: 600; white-space: nowrap; }
 .fuel-table tbody tr:nth-child(even) { background: var(--surface-soft); }
 .fuel-table tbody tr:last-child th { border-bottom: 0; }
-.fuel-table tbody tr:target { background: #eff8ff; }
+.fuel-table tbody tr:target { background: var(--info-soft); }
 .fuel-table .fuel-interval-start { border-left: 1px solid var(--line); }
-.fuel-completed .fuel-consumption { color: #1849a9; font-weight: 750; }
+.fuel-completed .fuel-consumption { color: var(--accent-soft-text); font-weight: 750; }
 .fuel-status { white-space: nowrap; }
 .fuel-full { color: var(--success); background: var(--success-soft); font-size: .72rem; padding: 3px 8px; }
 .fuel-partial { color: var(--muted); font-size: .78rem; }
@@ -47,7 +47,7 @@
 .fuel-required-hint { margin: 0 0 22px; }
 .fuel-full-choice { cursor: pointer; margin: 4px 0 9px; padding: 13px; }
 .fuel-full-choice input { flex: 0 0 auto; accent-color: var(--primary); width: 18px; height: 18px; }
-.fuel-full-choice:has(input:checked) { border-color: #84adff; background: #f5f9ff; }
+.fuel-full-choice:has(input:checked) { border-color: var(--accent-soft-border); background: var(--accent-soft); }
 .fuel-form-actions { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
 .fuel-form-errors { margin: 8px 0 0; padding-left: 20px; }
 @media (max-width: 820px) {

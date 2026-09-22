@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from flask import template_rendered
 
 from app import (
-    Order, ServiceHistoryEntry, User, Vehicle, app, db, initializeDatabase,
+    FuelEntry, Order, ServiceHistoryEntry, User, Vehicle, app, db, initializeDatabase,
     serviceHistoryOrder,
 )
 from databaseManager import exportJson, importJson
@@ -371,6 +371,56 @@ class ServiceHistoryTests(unittest.TestCase):
                 self.assertEqual(context["historyCurvePoints"], expected_curve)
                 self.assertEqual([item.id for item in context["historyEntries"]], visible_ids)
                 self.assertIn("data-history-chart", response.get_data(as_text=True))
+
+    def test_fuel_mileage_shapes_curve_and_projection_without_history_entries(self):
+        today = date.today()
+        service = self.create_entry(
+            date=(today - timedelta(days=20)).isoformat(), mileage="1000",
+        )
+        fuel = FuelEntry(
+            vehicle_id=self.vehicle.id, date=today - timedelta(days=10),
+            mileage=2000, liters=40,
+        )
+        db.session.add_all([
+            fuel,
+            FuelEntry(vehicle_id=self.vehicle.id, date=today, liters=30),
+            FuelEntry(vehicle_id=self.other_vehicle.id, date=today,
+                      mileage=999999, liters=50),
+        ])
+        db.session.commit()
+        # IDs can overlap between tables; tank readings must remain curve-only.
+        self.assertEqual(fuel.id, service.id)
+        for suffix, visible in (("", [service.id]), ("?q=kein-Treffer", []),
+                                ("/history/print", [service.id])):
+            with self.subTest(suffix=suffix), captured_templates() as templates:
+                response = self.client.get(f"/vehicle/{self.vehicle.id}{suffix}")
+                self.assertEqual(response.status_code, 200)
+                context = templates[0][1]
+                self.assertEqual(context["historyCurvePoints"], [
+                    {"id": service.id, "date": service.date.isoformat(), "mileage": 1000},
+                    {"id": fuel.id, "date": fuel.date.isoformat(), "mileage": 2000,
+                     "isFuel": True},
+                ])
+                self.assertEqual([entry.id for entry in context["historyEntries"]], visible)
+                self.assertEqual(context["historyTotal"], 1)
+                self.assertEqual(context["historyProjection"]["mileage"], 3000)
+                self.assertEqual(response.get_data(as_text=True).count("data-history-entry "),
+                                 len(visible))
+
+    def test_fuel_only_vehicle_displays_curve_without_service_points(self):
+        db.session.add(FuelEntry(
+            vehicle_id=self.vehicle.id, date=date.today(), mileage=0, liters=40,
+        ))
+        db.session.commit()
+        for suffix in ("", "/history/print"):
+            with self.subTest(suffix=suffix), captured_templates() as templates:
+                response = self.client.get(f"/vehicle/{self.vehicle.id}{suffix}")
+                context = templates[0][1]
+                self.assertEqual(context["historyCurvePoints"][0]["mileage"], 0)
+                self.assertEqual(context["historyEntries"], [])
+                html = response.get_data(as_text=True)
+                self.assertIn("data-history-chart", html)
+                self.assertNotIn("data-history-entry ", html)
 
     def test_projection_uses_full_history_with_filters_and_is_not_saved(self):
         today = date.today()

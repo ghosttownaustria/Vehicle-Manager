@@ -1187,10 +1187,7 @@ def vehicle(vehicleId):
         field: next((entry for entry in historyEntries if getattr(entry, field)), None)
         for field, _, _ in HISTORY_OIL_FIELDS
     }
-    historyCurvePoints = [
-        {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage}
-        for entry in historyEntries
-    ]
+    historyCurvePoints = buildHistoryCurve(historyEntries, vehicleItem.fuelEntries)
     # Casefold also handles German umlauts; search terms are literal substrings.
     historyEntries = [
         entry for entry in historyEntries
@@ -1226,6 +1223,17 @@ def vehicle(vehicleId):
     )
 
 
+def buildHistoryCurve(historyEntries, fuelEntries):
+    return [
+        {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage}
+        for entry in historyEntries
+    ] + [
+        {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage,
+         "isFuel": True}
+        for entry in fuelEntries if entry.mileage is not None
+    ]
+
+
 @app.route("/vehicle/<int:vehicleId>/history/print")
 @loginRequired
 def printServiceHistory(vehicleId):
@@ -1239,10 +1247,7 @@ def printServiceHistory(vehicleId):
         .order_by(ServiceHistoryEntry.date.asc(), ServiceHistoryEntry.id.asc())
         .all()
     )
-    curve = [
-        {"id": entry.id, "date": entry.date.isoformat(), "mileage": entry.mileage}
-        for entry in entries
-    ]
+    curve = buildHistoryCurve(entries, vehicleItem.fuelEntries)
     return render_template(
         "service_history_print.html", vehicle=vehicleItem, historyPrint=True,
         historyEntries=entries, historyTotal=len(entries),

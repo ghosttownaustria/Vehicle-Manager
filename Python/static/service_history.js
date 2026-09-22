@@ -41,6 +41,7 @@
     })).sort((a, b) => a.time - b.time || Number(a.id) - Number(b.id));
     const curveEntries = JSON.parse(section.querySelector("[data-history-curve]").textContent).map(item => ({
         id: String(item.id),
+        isFuel: item.isFuel === true,
         time: Date.parse(`${item.date}T00:00:00Z`),
         mileage: item.mileage,
     })).sort((a, b) => a.time - b.time || Number(a.id) - Number(b.id));
@@ -234,6 +235,8 @@
         const groups = [];
         const visibleEntries = new Map(entries.map(item => [item.id, item]));
         for (const point of points) {
+            // Fuel readings shape the curve but never create or move service markers.
+            if (point.item.isFuel) continue;
             const group = groups.find(item => Math.hypot(item.x - point.x, item.y - point.y) < 38);
             if (group) group.curveItems.push(point.item);
             else groups.push({x: point.x, y: point.y, curveItems: [point.item]});

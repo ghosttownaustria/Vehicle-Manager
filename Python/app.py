@@ -1183,6 +1183,7 @@ def vehicle(vehicleId):
         .all()
     )
     historyTotal = len(historyEntries)
+    latestHistoryEntry = historyEntries[0] if historyEntries else None
     latestOils = {
         field: next((entry for entry in historyEntries if getattr(entry, field)), None)
         for field, _, _ in HISTORY_OIL_FIELDS
@@ -1208,6 +1209,7 @@ def vehicle(vehicleId):
         result=result,
         historyEntries=historyEntries,
         historyTotal=historyTotal,
+        latestHistoryEntry=latestHistoryEntry,
         fuelStatistics=buildFuelStatistics(vehicleItem.fuelEntries),
         latestOils=latestOils,
         historyOilFields=HISTORY_OIL_FIELDS,

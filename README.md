@@ -77,6 +77,28 @@ Die Tankbuchtabelle wird beim nächsten Start automatisch angelegt; vorhandene
 Daten bleiben erhalten. Das Tankbuch ist im JSON-Export und -Import enthalten.
 Ältere Sicherungen ohne Tankbuch lassen sich weiterhin importieren.
 
+## Fahrzeugübersicht, Dark Mode und mobile Ansicht im Python-Projekt
+
+Jede Fahrzeugseite ist in Reiter unterteilt: **Dashboard**, **Servicehistorie**,
+**Spritverbrauch**, **Fahrzeugdaten** und **Aufträge**. Das Dashboard zeigt die
+Kennzahlen (Einnahmen, EK, Ergebnis, Arbeitszeit) sowie eine kurze Zusammenfassung
+je Bereich, etwa den letzten Verbrauchswert, den letzten Historieneintrag und die
+Anzahl offener Aufträge. Von dort führen Schaltflächen direkt in den jeweiligen
+Reiter. Direktlinks auf einzelne Historien- oder Tankeinträge (z. B. aus den
+Fahrzeugdaten oder per Lesezeichen) öffnen automatisch den passenden Reiter samt
+Detailansicht. Die Reiterleiste lässt sich auf schmalen Bildschirmen seitlich
+durchwischen.
+
+Über den Schalter oben rechts (Mond-/Sonnensymbol) lässt sich zwischen hellem und
+dunklem Farbschema wechseln; ohne Auswahl richtet sich die App nach der
+Systemeinstellung. Die Wahl wird im Browser gespeichert und gilt für alle Seiten,
+auch für die Anmeldeseite. Die Druckansicht der Servicehistorie bleibt davon
+unabhängig immer hell.
+
+Die Oberfläche ist für Smartphones optimiert: Kacheln und Tabellen stapeln sich auf
+schmalen Bildschirmen einspaltig, Tabellen mit vielen Spalten lassen sich seitlich
+scrollen und Schaltflächen sind für Touch-Bedienung groß genug.
+
 ## Markenlogos im Python-Projekt
 
 Fahrzeugnamen zeigen automatisch links das Logo der eingetragenen Marke.

@@ -1,10 +1,30 @@
 {% from "_vehicle_name.html" import vehicleName %}
+{% macro themeIcons() %}
+<svg class="theme-icon theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+<svg class="theme-icon theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+{% endmacro %}
 <!doctype html>
 <html lang="de">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Vehicle Manager{% endblock %}</title>
+    <script>
+        (() => {
+            const stored = localStorage.getItem("vm-theme");
+            const theme = stored === "light" || stored === "dark"
+                ? stored
+                : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+            document.documentElement.dataset.theme = theme;
+            document.addEventListener("click", event => {
+                const button = event.target.closest("[data-theme-toggle]");
+                if (!button) return;
+                const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+                document.documentElement.dataset.theme = next;
+                localStorage.setItem("vm-theme", next);
+            });
+        })();
+    </script>
     <style>
         :root {
             --bg: #f4f6f8;
@@ -17,13 +37,65 @@
             --primary-dark: #004eeb;
             --success: #067647;
             --success-soft: #ecfdf3;
+            --success-border: #abefc6;
             --warning: #b54708;
             --warning-soft: #fffaeb;
+            --warning-border: #fedf89;
             --danger: #b42318;
             --danger-soft: #fef3f2;
+            --danger-border: #fecdca;
             --info-soft: #eff8ff;
+            --info-border: #b2ddff;
+            --info-text: #175cd3;
+            --accent-soft: #f5f9ff;
+            --accent-soft-border: #84adff;
+            --accent-soft-text: #1849a9;
+            --field-bg: #ffffff;
+            --field-border: #d0d5dd;
+            --badge-neutral-bg: #f2f4f7;
+            --badge-neutral-text: #475467;
+            --hover-border: #b2ccff;
+            --empty-border: #cfd4dc;
+            --overlay: rgba(16, 24, 40, .48);
+            --chart-grid: #e7ecf3;
             --shadow: 0 12px 32px rgba(16, 24, 40, .08);
             --radius: 14px;
+            color-scheme: light;
+        }
+        :root[data-theme="dark"] {
+            --bg: #0b0f17;
+            --surface: #121927;
+            --surface-soft: #1a2333;
+            --text: #e7eaf0;
+            --muted: #93a1b6;
+            --line: #283243;
+            --primary: #4c8dff;
+            --primary-dark: #2f6fe0;
+            --success: #3ed690;
+            --success-soft: rgba(62, 214, 144, .13);
+            --success-border: rgba(62, 214, 144, .35);
+            --warning: #f0a94e;
+            --warning-soft: rgba(240, 169, 78, .13);
+            --warning-border: rgba(240, 169, 78, .35);
+            --danger: #f77b6b;
+            --danger-soft: rgba(247, 123, 107, .14);
+            --danger-border: rgba(247, 123, 107, .38);
+            --info-soft: rgba(76, 141, 255, .14);
+            --info-border: rgba(76, 141, 255, .38);
+            --info-text: #83b2ff;
+            --accent-soft: rgba(76, 141, 255, .14);
+            --accent-soft-border: #3f6fd6;
+            --accent-soft-text: #9dc0ff;
+            --field-bg: #0f1520;
+            --field-border: #323d51;
+            --badge-neutral-bg: rgba(231, 234, 240, .1);
+            --badge-neutral-text: #c2cbdb;
+            --hover-border: #3f6fd6;
+            --empty-border: #323d51;
+            --overlay: rgba(2, 5, 10, .64);
+            --chart-grid: #283243;
+            --shadow: 0 12px 32px rgba(0, 0, 0, .45);
+            color-scheme: dark;
         }
 
         * { box-sizing: border-box; }
@@ -32,6 +104,7 @@
             color: var(--text);
             background: var(--bg);
             font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            transition: background-color .15s ease, color .15s ease;
         }
         a { color: var(--primary); text-decoration: none; }
         a:hover { text-decoration: underline; }
@@ -120,6 +193,34 @@
             color: #f2f4f7;
             padding: 8px 11px;
             font-weight: 700;
+        }
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            flex: 0 0 auto;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, .16);
+            border-radius: 9px;
+            background: rgba(255, 255, 255, .06);
+            color: #f2f4f7;
+            cursor: pointer;
+        }
+        .theme-toggle:hover { background: rgba(255, 255, 255, .14); }
+        .theme-icon { display: block; }
+        :root[data-theme="dark"] .theme-icon-sun,
+        :root:not([data-theme="dark"]) .theme-icon-moon { display: none; }
+        .theme-toggle-standalone {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 30;
+            border-color: var(--line);
+            background: var(--surface);
+            color: var(--text);
+            box-shadow: var(--shadow);
         }
 
         .page {
@@ -211,6 +312,7 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: #dc6803; color: white; }
         .btn-sm { min-height: 34px; padding: 5px 10px; font-size: .88rem; }
+        .btn-icon { min-width: 40px; padding: 8px; flex: 0 0 auto; }
 
         .field { margin-bottom: 16px; }
         .field:last-child { margin-bottom: 0; }
@@ -221,10 +323,10 @@
         }
         input, textarea, select {
             width: 100%;
-            border: 1px solid #d0d5dd;
+            border: 1px solid var(--field-border);
             border-radius: 9px;
             padding: 10px 12px;
-            background: white;
+            background: var(--field-bg);
             color: var(--text);
             font: inherit;
         }
@@ -243,10 +345,10 @@
             align-items: center;
             gap: 9px;
             min-height: 42px;
-            border: 1px solid #d0d5dd;
+            border: 1px solid var(--field-border);
             border-radius: 9px;
             padding: 9px 11px;
-            background: white;
+            background: var(--field-bg);
             font-weight: 650;
         }
         .checkbox-item input {
@@ -272,7 +374,7 @@
             font-weight: 700;
         }
         .tab.active {
-            background: white;
+            background: var(--surface);
             color: var(--text);
             box-shadow: 0 1px 4px rgba(16, 24, 40, .1);
         }
@@ -287,7 +389,7 @@
             font-weight: 750;
         }
         .badge-open { background: var(--success-soft); color: var(--success); }
-        .badge-closed { background: #f2f4f7; color: #475467; }
+        .badge-closed { background: var(--badge-neutral-bg); color: var(--badge-neutral-text); }
 
         .list {
             display: grid;
@@ -301,9 +403,9 @@
             border: 1px solid var(--line);
             border-radius: 11px;
             padding: 14px 16px;
-            background: white;
+            background: var(--surface);
         }
-        .list-item:hover { border-color: #b2ccff; }
+        .list-item:hover { border-color: var(--hover-border); }
         .list-title { font-weight: 750; color: var(--text); }
         .list-meta { color: var(--muted); font-size: .87rem; margin-top: 2px; }
 
@@ -347,13 +449,13 @@
             border-radius: 10px;
             padding: 12px 14px;
         }
-        .alert-success { color: var(--success); background: var(--success-soft); border-color: #abefc6; }
-        .alert-warning { color: var(--warning); background: var(--warning-soft); border-color: #fedf89; }
-        .alert-danger { color: var(--danger); background: var(--danger-soft); border-color: #fecdca; }
-        .alert-info { color: #175cd3; background: var(--info-soft); border-color: #b2ddff; }
+        .alert-success { color: var(--success); background: var(--success-soft); border-color: var(--success-border); }
+        .alert-warning { color: var(--warning); background: var(--warning-soft); border-color: var(--warning-border); }
+        .alert-danger { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-border); }
+        .alert-info { color: var(--info-text); background: var(--info-soft); border-color: var(--info-border); }
         .empty {
             padding: 36px 18px;
-            border: 1px dashed #cfd4dc;
+            border: 1px dashed var(--empty-border);
             border-radius: 11px;
             color: var(--muted);
             text-align: center;
@@ -405,9 +507,16 @@
                 <span class="nav-user">{{ currentUser.displayName }} · {{ currentUser.roleLabel }}</span>
             {% endif %}
             <a href="{{ url_for('logout') }}">Abmelden</a>
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Farbschema wechseln" title="Farbschema wechseln">
+                {{ themeIcons() }}
+            </button>
         </nav>
     </div>
 </header>
+{% else %}
+<button type="button" class="theme-toggle theme-toggle-standalone" data-theme-toggle aria-label="Farbschema wechseln" title="Farbschema wechseln">
+    {{ themeIcons() }}
+</button>
 {% endif %}
 
 <main class="page">

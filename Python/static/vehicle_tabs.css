@@ -1,0 +1,32 @@
+.vehicle-tabs { min-width: 0; }
+.vehicle-tab-bar {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.vehicle-tab-bar .tab {
+    flex: 0 0 auto;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.vehicle-tab-bar .tab:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+.tab-panel[hidden] { display: none; }
+.dashboard-grid { row-gap: 18px; }
+.dashboard-card .card-header { flex-wrap: wrap; gap: 8px; }
+.dashboard-card .details .detail:last-child { border-bottom: 0; }
+
+@media (max-width: 560px) {
+    .vehicle-tab-bar { margin-bottom: 14px; }
+    .dashboard-card .card-header h2 { font-size: 1.05rem; }
+}

@@ -22,7 +22,7 @@
     const categories = JSON.parse(section.querySelector("[data-history-categories]").textContent);
     const categoryColors = {
         service: "#155eef", repair: "#d95619", tires: "#8752cc",
-        inspection: "#16845b", purchase: "#08778c", other: "#667085",
+        inspection: "#16845b", purchase: "#fcba03", other: "#667085",
     };
     const number = new Intl.NumberFormat("de-DE");
     const compactNumber = new Intl.NumberFormat("de-DE", {

@@ -19,6 +19,7 @@
     <div class="actions">
         {% if currentUser.canModifyVehicles %}
             <a class="btn btn-secondary" href="{{ url_for('printOrder', orderId=order.id) }}">PDF</a>
+            <a class="btn btn-secondary" href="{{ url_for('invoiceOrder', orderId=order.id) }}">Rechnung drucken</a>
         {% endif %}
         {% if currentUser.canModifyVehicles and not order.isClosed %}
             <a class="btn btn-secondary" href="{{ url_for('editOrder', orderId=order.id) }}">Bearbeiten</a>

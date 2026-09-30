@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Rechnung drucken · Vehicle Manager{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='invoice.js') }}" defer></script>{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Rechnung drucken</h1>
+        <p>{{ order.title }} · {{ vehicleName(order.vehicle) }}</p>
+    </div>
+</div>
+
+<form method="post" id="invoice-form">
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header"><h2>Positionen</h2></div>
+        {% if costs %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th></th><th>Beschreibung</th><th class="number">Menge</th><th class="number">VK</th><th class="number">Preis</th></tr></thead>
+                <tbody>
+                {% for cost in costs %}
+                    <tr>
+                        <td><input type="checkbox" name="cost_id" value="{{ cost.id }}" data-price="{{ cost.price }}" checked aria-label="Position übernehmen"></td>
+                        <td>{{ cost.description }}</td>
+                        <td class="number">{{ '%g'|format(cost.quantity or 0) }}</td>
+                        <td class="number">{{ cost.saleAmount|currency }} €</td>
+                        <td class="number">{{ cost.price|currency }} €</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<div class="empty">Noch keine Positionen erfasst.</div>{% endif %}
+    </section>
+
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header"><h2>Arbeitszeit</h2><strong>Erfasst: {{ loggedHours|currency }} h</strong></div>
+        {% if times %}
+        <div class="list" style="margin-bottom: 16px">
+            {% for time in times %}
+            <div class="list-item">
+                <div class="list-title">{{ time.description }}</div>
+                <div class="list-meta">{{ time.date|dateTime }} · {{ time.person }} · {{ time.hours|currency }} h</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <div class="grid">
+            <div class="field span-4">
+                <label for="hours">Stunden auf der Rechnung</label>
+                <input id="hours" type="number" step="0.01" min="0" name="hours" value="{{ '%g'|format(loggedHours) }}" required>
+            </div>
+            <div class="field span-4">
+                <label for="hourlyRate">Stundenlohn (€)</label>
+                <input id="hourlyRate" type="number" step="0.01" min="0" value="0">
+            </div>
+            <div class="field span-4">
+                <label for="hoursTotal">Gesamtkosten Stunden (€)</label>
+                <input id="hoursTotal" type="number" step="0.01" min="0" name="hoursTotal" value="0" required>
+            </div>
+        </div>
+    </section>
+
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header"><h2>Rabatte</h2></div>
+        <div id="discount-rows"></div>
+        <button class="btn btn-secondary btn-sm" type="button" id="add-discount">Rabatt hinzufügen</button>
+        <p class="hint">Prozent beziehen sich auf die Summe aus Positionen und Arbeitszeit. Der Centausgleich wird automatisch abgezogen, sodass der Rechnungsbetrag auf 10 Cent genau endet.</p>
+        <div class="list-meta" id="rounding-line"></div>
+    </section>
+
+    <template id="discount-template">
+        <div class="grid discount-row" style="margin-bottom: 8px">
+            <div class="field span-5"><input type="text" name="discountDescription" placeholder="Beschreibung" aria-label="Beschreibung"></div>
+            <div class="field span-2">
+                <select name="discountType" aria-label="Art">
+                    <option value="amount">€</option>
+                    <option value="percent">%</option>
+                </select>
+            </div>
+            <div class="field span-3"><input type="number" step="0.01" min="0" name="discountValue" placeholder="Wert" aria-label="Wert"></div>
+            <div class="field span-2"><button class="btn btn-secondary btn-sm remove-discount" type="button">Entfernen</button></div>
+        </div>
+    </template>
+
+    <div class="stat" style="margin-bottom: 22px">
+        <div class="stat-label">Rechnungsbetrag</div>
+        <div class="stat-value" id="invoice-total">0,00 €</div>
+    </div>
+
+    <div class="actions">
+        <button class="btn btn-primary" type="submit">Rechnung als PDF</button>
+        <a class="btn btn-secondary" href="{{ url_for('order', orderId=order.id) }}">Abbrechen</a>
+    </div>
+</form>
+{% endblock %}

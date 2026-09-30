@@ -324,7 +324,7 @@ def hoursCell(value, styles, bold=False):
 
 
 def directOrderTotals(order):
-    totalCost = sum((item.amount or 0) for item in order.costs)
+    totalCost = sum(item.purchaseTotal for item in order.costs)
     totalIncome = sum((item.amount or 0) for item in order.incomes)
     totalHours = sum((item.hours or 0) for item in order.times)
     return totalCost, totalIncome, totalHours, totalIncome - totalCost
@@ -332,7 +332,7 @@ def directOrderTotals(order):
 
 def ownVehicleTotals(vehicle):
     totalCost = sum(
-        (cost.amount or 0)
+        cost.purchaseTotal
         for order in vehicle.orders
         for cost in order.costs
     )
@@ -604,6 +604,137 @@ def buildOrderPdf(order, totals):
             ),
         ]
     )
+    document.build(
+        elements,
+        onFirstPage=drawBrandHeader,
+        onLaterPages=drawBrandHeader,
+        canvasmaker=NumberedCanvas,
+    )
+    buffer.seek(0)
+    return buffer
+
+
+def toCents(value):
+    return int(round((value or 0) * 100))
+
+
+def calculateInvoiceDiscounts(subtotal, discounts):
+    """Return discount lines (description, cents) and the cent rounding in cents.
+
+    Each discount is (description, isPercent, value). Percentages refer to the
+    subtotal before any discount. The rounding always cuts the final total
+    down to a full ten cents.
+    """
+    subtotalCents = toCents(subtotal)
+    lines = []
+    for description, isPercent, value in discounts:
+        cents = (
+            int(round(subtotalCents * value / 100))
+            if isPercent
+            else toCents(value)
+        )
+        lines.append((description, cents))
+    totalCents = subtotalCents - sum(cents for _, cents in lines)
+    return lines, totalCents % 10
+
+
+def invoiceTable(costs, hours, hourlyRate, hoursTotal, discountLines,
+                 roundingCents, styles):
+    rows = [
+        [
+            Paragraph(safeText(item.description), styles["body"]),
+            Paragraph(f"{item.quantity or 0:g}", styles["body_right"]),
+            amountCell(item.saleAmount, styles),
+            amountCell(item.price, styles),
+        ]
+        for item in costs
+    ]
+    if hours > 0 or hoursTotal > 0:
+        rows.append(
+            [
+                Paragraph("Arbeitszeit", styles["body"]),
+                hoursCell(hours, styles),
+                amountCell(hourlyRate, styles),
+                amountCell(hoursTotal, styles),
+            ]
+        )
+    deductions = list(discountLines)
+    if roundingCents:
+        deductions.append(("Centausgleich", roundingCents))
+    for description, cents in deductions:
+        rows.append(
+            [
+                Paragraph(safeText(description, "Rabatt"), styles["body"]),
+                "",
+                "",
+                amountCell(-cents / 100, styles),
+            ]
+        )
+    return sectionTable(
+        "Rechnung",
+        ["Beschreibung", "Menge", "Einzelpreis", "Preis"],
+        rows,
+        [
+            CONTENT_WIDTH * 0.52,
+            CONTENT_WIDTH * 0.14,
+            CONTENT_WIDTH * 0.17,
+            CONTENT_WIDTH * 0.17,
+        ],
+        styles,
+        "Keine Positionen ausgewählt",
+    )
+
+
+def invoiceTotalTable(total, styles):
+    table = Table(
+        [
+            [
+                Paragraph("Rechnungsbetrag", styles["bold"]),
+                amountCell(total, styles, bold=True),
+            ]
+        ],
+        colWidths=[CONTENT_WIDTH * 0.75, CONTENT_WIDTH * 0.25],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), TABLE_GRAY),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    return table
+
+
+def buildInvoicePdf(order, costs, hours, hoursTotal, discounts=()):
+    styles = pdfStyles()
+    buffer = io.BytesIO()
+    document = createDocument(
+        buffer,
+        f"Rechnung {order.title}",
+        order.vehicle,
+    )
+    hourlyRate = hoursTotal / hours if hours > 0 else 0
+    subtotal = sum(item.price for item in costs) + hoursTotal
+    discountLines, roundingCents = calculateInvoiceDiscounts(subtotal, discounts)
+    totalCents = (
+        toCents(subtotal) - sum(cents for _, cents in discountLines) - roundingCents
+    )
+
+    elements = [
+        Paragraph(safeText(order.title, "Rechnung"), styles["order_title"]),
+        Spacer(1, 4 * mm),
+        invoiceTable(
+            costs, hours, hourlyRate, hoursTotal, discountLines, roundingCents, styles
+        ),
+        Spacer(1, 5 * mm),
+        invoiceTotalTable(totalCents / 100, styles),
+    ]
     document.build(
         elements,
         onFirstPage=drawBrandHeader,

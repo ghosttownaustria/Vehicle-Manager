@@ -18,7 +18,7 @@ from flask_sqlalchemy import SQLAlchemy
 from brandLogos import brandLogoUrl
 from historyProjection import projectMileage
 from fuelStatistics import buildFuelStatistics
-from pdfReports import buildOrderPdf, buildVehiclePdf
+from pdfReports import buildInvoicePdf, buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import selectinload
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -406,6 +406,10 @@ class Cost(db.Model):
     @property
     def price(self):
         return (self.saleAmount or 0) * (self.quantity or 0)
+
+    @property
+    def purchaseTotal(self):
+        return (self.amount or 0) * (self.quantity or 0)
 
 
 class WorkTime(db.Model):
@@ -865,7 +869,7 @@ def userOptionValues(users):
 
 
 def directOrderTotals(orderItem):
-    totalCost = sum((item.amount or 0) for item in orderItem.costs)
+    totalCost = sum(item.purchaseTotal for item in orderItem.costs)
     totalIncome = sum((item.amount or 0) for item in orderItem.incomes)
     totalHours = sum((item.hours or 0) for item in orderItem.times)
     return totalCost, totalIncome, totalHours, totalIncome - totalCost
@@ -879,7 +883,7 @@ def addTotals(firstTotals, secondTotals):
 
 def ownVehicleTotals(vehicleItem):
     totalCost = sum(
-        (cost.amount or 0)
+        cost.purchaseTotal
         for orderItem in vehicleItem.orders
         for cost in orderItem.costs
     )
@@ -1679,7 +1683,7 @@ def order(orderId):
     totalCost, totalIncome, totalHours, result = orderTotalsForCurrentUser(
         orderItem
     )
-    directCost = sum((item.amount or 0) for item in orderItem.costs)
+    directCost = sum(item.purchaseTotal for item in orderItem.costs)
     directIncome = sum((item.amount or 0) for item in orderItem.incomes)
     directHours = sum((item.hours or 0) for item in orderItem.times)
     personUserOptions = selectableUsersForOrder(orderItem)
@@ -1938,6 +1942,65 @@ def printOrder(orderId):
         as_attachment=True,
         download_name=f"auftrag_{orderItem.id}.pdf",
         mimetype="application/pdf",
+    )
+
+
+def parseInvoiceDiscounts(form):
+    """Read discount rows as (description, isPercent, value); skip empty values."""
+    rows = zip(
+        form.getlist("discountDescription"),
+        form.getlist("discountType"),
+        form.getlist("discountValue"),
+    )
+    discounts = []
+    for description, discountType, value in rows:
+        amount = parseFormAmount(value)
+        if amount > 0:
+            discounts.append(
+                (description.strip() or "Rabatt", discountType == "percent", amount)
+            )
+    return discounts
+
+
+@app.route("/order/<int:orderId>/invoice", methods=["GET", "POST"])
+@loginRequired
+def invoiceOrder(orderId):
+    orderItem = Order.query.get_or_404(orderId)
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return accessDeniedRedirect()
+
+    costs = sorted(orderItem.costs, key=lambda item: item.date or datetime.min)
+    loggedHours = sum((item.hours or 0) for item in orderItem.times)
+
+    if request.method == "POST":
+        selectedIds = set(request.form.getlist("cost_id"))
+        try:
+            invoiceHours = max(parseFormAmount(request.form.get("hours")), 0)
+            hoursTotal = max(parseFormAmount(request.form.get("hoursTotal")), 0)
+            discounts = parseInvoiceDiscounts(request.form)
+        except ValueError:
+            flash("Bitte gültige Zahlen für Stunden, Kosten und Rabatte angeben.", "danger")
+            return redirect(url_for("invoiceOrder", orderId=orderItem.id))
+        buffer = buildInvoicePdf(
+            orderItem,
+            [item for item in costs if str(item.id) in selectedIds],
+            invoiceHours,
+            hoursTotal,
+            discounts,
+        )
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"rechnung_{orderItem.id}.pdf",
+            mimetype="application/pdf",
+        )
+
+    return render_template(
+        "invoice.html",
+        order=orderItem,
+        costs=costs,
+        times=sorted(orderItem.times, key=lambda item: item.date or datetime.min),
+        loggedHours=loggedHours,
     )
 
 

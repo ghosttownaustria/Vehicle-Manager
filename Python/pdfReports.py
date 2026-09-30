@@ -638,108 +638,173 @@ def calculateInvoiceDiscounts(subtotal, discounts):
     return lines, totalCents % 10
 
 
-def invoiceTable(costs, hours, hourlyRate, hoursTotal, discountLines,
-                 roundingCents, styles):
-    rows = [
-        [
-            Paragraph(safeText(item.description), styles["body"]),
-            Paragraph(f"{item.quantity or 0:g}", styles["body_right"]),
-            amountCell(item.saleAmount, styles),
-            amountCell(item.price, styles),
-        ]
-        for item in costs
-    ]
+def formatNumber(value):
+    return f"{value or 0:.1f}".replace(".", ",")
+
+
+def invoiceRows(costs, hours, hourlyRate, hoursTotal, discounts, roundingCents):
+    """Build invoice rows as (kind, description, quantity, price, total) tuples.
+
+    Kinds: "row" (plain line), "sum" (bold subtotal) and "gap" (empty spacer).
+    """
+    rows = []
+    if costs:
+        for item in costs:
+            rows.append(
+                (
+                    "row",
+                    item.description,
+                    formatNumber(item.quantity),
+                    formatCurrency(item.saleAmount),
+                    formatCurrency(item.price),
+                )
+            )
+        rows.append(
+            ("sum", "Summe Teile", "", "", formatCurrency(sum(i.price for i in costs)))
+        )
+        rows.append(("gap", "", "", "", ""))
     if hours > 0 or hoursTotal > 0:
-        rows.append(
+        rows.extend(
             [
-                Paragraph("Arbeitszeit", styles["body"]),
-                hoursCell(hours, styles),
-                amountCell(hourlyRate, styles),
-                amountCell(hoursTotal, styles),
+                (
+                    "row",
+                    "Arbeitsstunden",
+                    formatNumber(hours),
+                    formatCurrency(hourlyRate),
+                    formatCurrency(hoursTotal),
+                ),
+                ("sum", "Summe Arbeitsstunden", "", "", formatCurrency(hoursTotal)),
+                ("gap", "", "", "", ""),
             ]
         )
-    deductions = list(discountLines)
-    if roundingCents:
-        deductions.append(("Centausgleich", roundingCents))
-    for description, cents in deductions:
+    deductionCents = 0
+    for description, isPercent, value, cents in discounts:
+        deductionCents += cents
         rows.append(
-            [
-                Paragraph(safeText(description, "Rabatt"), styles["body"]),
+            (
+                "row",
+                description,
+                f"{value:g} %".replace(".", ",") if isPercent else "",
                 "",
-                "",
-                amountCell(-cents / 100, styles),
-            ]
+                formatCurrency(-cents / 100),
+            )
         )
-    return sectionTable(
-        "Rechnung",
-        ["Beschreibung", "Menge", "Einzelpreis", "Preis"],
-        rows,
+    deductionCents += roundingCents
+    rows.append(("row", "Centausgleich", "", "", formatCurrency(-roundingCents / 100)))
+    rows.append(("sum", "Summe Sonstige", "", "", formatCurrency(-deductionCents / 100)))
+    return rows
+
+
+def invoiceTable(rows, total, styles):
+    data = [
         [
-            CONTENT_WIDTH * 0.52,
-            CONTENT_WIDTH * 0.14,
-            CONTENT_WIDTH * 0.17,
-            CONTENT_WIDTH * 0.17,
-        ],
-        styles,
-        "Keine Positionen ausgewählt",
+            Paragraph(text, styles["body_right" if column else "body"])
+            for column, text in enumerate(
+                ["Beschreibung", "AW/Menge", "Preis", "Endpreis"]
+            )
+        ]
+    ]
+    for kind, description, quantity, price, amount in rows:
+        style = "bold" if kind == "sum" else "body"
+        rightStyle = "bold_right" if kind == "sum" else "body_right"
+        data.append(
+            [
+                Paragraph(safeText(description, "&nbsp;"), styles[style]),
+                Paragraph(quantity, styles[rightStyle]),
+                Paragraph(price, styles[rightStyle]),
+                Paragraph(amount, styles[rightStyle]),
+            ]
+        )
+    data.append(
+        [
+            Paragraph("Summe Gesamt", styles["bold"]),
+            "",
+            "",
+            Paragraph(formatCurrency(total), styles["bold_right"]),
+        ]
     )
-
-
-def invoiceTotalTable(total, styles):
+    lastRow = len(data) - 1
     table = Table(
-        [
-            [
-                Paragraph("Rechnungsbetrag", styles["bold"]),
-                amountCell(total, styles, bold=True),
-            ]
+        data,
+        colWidths=[
+            (CONTENT_WIDTH - 12) * 0.55,
+            (CONTENT_WIDTH - 12) * 0.15,
+            (CONTENT_WIDTH - 12) * 0.15,
+            (CONTENT_WIDTH - 12) * 0.15,
         ],
-        colWidths=[CONTENT_WIDTH * 0.75, CONTENT_WIDTH * 0.25],
+        repeatRows=1,
+        hAlign="LEFT",
     )
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), TABLE_GRAY),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 3),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+                ("LINEABOVE", (0, 0), (-1, 0), 0.75, colors.black),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.75, colors.black),
+                ("LINEABOVE", (0, lastRow), (-1, lastRow), 0.75, colors.black),
+                ("TOPPADDING", (0, lastRow), (-1, lastRow), 4),
+                ("LINEBELOW", (0, lastRow), (-1, lastRow), 0.75, colors.black),
             ]
         )
     )
     return table
 
 
+def drawInvoicePage(pdfCanvas, document):
+    pdfCanvas.saveState()
+    left = (18 * mm) + 6  # matches the default 6 pt frame padding
+    right = PAGE_WIDTH - (18 * mm) - 6
+    titleY = PAGE_HEIGHT - (20 * mm)
+    pdfCanvas.setFont("Helvetica-Bold", 11)
+    pdfCanvas.drawString(left, titleY, "Rechnung")
+    pdfCanvas.drawRightString(right, titleY, document.invoiceTitle)
+
+    footerY = 15 * mm
+    pdfCanvas.setFont("Helvetica", 9)
+    pdfCanvas.drawString(left, footerY, document.vehicle.displayName or "")
+    pdfCanvas.drawRightString(right, footerY, document.vehicle.vin or "")
+    pdfCanvas.restoreState()
+
+
 def buildInvoicePdf(order, costs, hours, hoursTotal, discounts=()):
     styles = pdfStyles()
     buffer = io.BytesIO()
-    document = createDocument(
+    document = SimpleDocTemplate(
         buffer,
-        f"Rechnung {order.title}",
-        order.vehicle,
+        pagesize=A4,
+        title=f"Rechnung {order.title}",
+        author="Ghost Town",
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=25 * mm,
+        bottomMargin=25 * mm,
     )
+    document.vehicle = order.vehicle
+    document.invoiceTitle = order.title or ""
+
     hourlyRate = hoursTotal / hours if hours > 0 else 0
     subtotal = sum(item.price for item in costs) + hoursTotal
     discountLines, roundingCents = calculateInvoiceDiscounts(subtotal, discounts)
+    discountRows = [
+        (description, isPercent, value, cents)
+        for (description, isPercent, value), (_, cents) in zip(
+            discounts, discountLines
+        )
+    ]
     totalCents = (
         toCents(subtotal) - sum(cents for _, cents in discountLines) - roundingCents
     )
-
-    elements = [
-        Paragraph(safeText(order.title, "Rechnung"), styles["order_title"]),
-        Spacer(1, 4 * mm),
-        invoiceTable(
-            costs, hours, hourlyRate, hoursTotal, discountLines, roundingCents, styles
-        ),
-        Spacer(1, 5 * mm),
-        invoiceTotalTable(totalCents / 100, styles),
-    ]
+    rows = invoiceRows(
+        costs, hours, hourlyRate, hoursTotal, discountRows, roundingCents
+    )
     document.build(
-        elements,
-        onFirstPage=drawBrandHeader,
-        onLaterPages=drawBrandHeader,
-        canvasmaker=NumberedCanvas,
+        [invoiceTable(rows, totalCents / 100, styles)],
+        onFirstPage=drawInvoicePage,
+        onLaterPages=drawInvoicePage,
     )
     buffer.seek(0)
     return buffer

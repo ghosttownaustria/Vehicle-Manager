@@ -417,23 +417,27 @@ def costTable(costs, styles):
         [
             detailCell(item.description, item.date, styles),
             Paragraph(safeText(item.person), styles["body"]),
+            Paragraph(f"{item.quantity or 0:g}", styles["body_right"]),
             amountCell(item.amount, styles, forceNegative=True),
             amountCell(item.saleAmount, styles),
+            amountCell(item.price, styles),
         ]
         for item in sorted(costs, key=lambda item: item.date or datetime.min)
     ]
     return sectionTable(
-        "Ausgaben",
-        ["Beschreibung", "Person", "EK", "VK"],
+        "Positionen",
+        ["Beschreibung", "Person", "Menge", "EK", "VK", "Preis"],
         rows,
         [
-            CONTENT_WIDTH * 0.48,
-            CONTENT_WIDTH * 0.22,
-            CONTENT_WIDTH * 0.15,
-            CONTENT_WIDTH * 0.15,
+            CONTENT_WIDTH * 0.32,
+            CONTENT_WIDTH * 0.18,
+            CONTENT_WIDTH * 0.10,
+            CONTENT_WIDTH * 0.13,
+            CONTENT_WIDTH * 0.13,
+            CONTENT_WIDTH * 0.14,
         ],
         styles,
-        "Keine Ausgaben erfasst",
+        "Keine Positionen erfasst",
     )
 
 

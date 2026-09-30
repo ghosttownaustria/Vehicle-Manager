@@ -73,6 +73,17 @@ ROLE_OPTIONS = [
     (ROLE_ADMIN, ROLE_LABELS[ROLE_ADMIN]),
 ]
 
+MARKUP_MANUAL = "manual"
+MARKUP_PERCENTAGES = {"ek": 0, "10": 10, "25": 25, "50": 50, "100": 100}
+MARKUP_OPTIONS = [
+    ("ek", "EK"),
+    ("10", "10%"),
+    ("25", "25%"),
+    ("50", "50%"),
+    ("100", "100%"),
+    (MARKUP_MANUAL, "Manuell"),
+]
+
 
 SERVICE_CATEGORIES = [
     {"value": "service", "label": "Service", "symbol": "⚙"},
@@ -386,9 +397,15 @@ class Cost(db.Model):
     description = db.Column(db.String(200))
     amount = db.Column(db.Float)
     saleAmount = db.Column(db.Float, nullable=False, default=0)
+    quantity = db.Column(db.Float, nullable=False, default=1)
+    markup = db.Column(db.String(10), nullable=False, default="manual")
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
+
+    @property
+    def price(self):
+        return (self.saleAmount or 0) * (self.quantity or 0)
 
 
 class WorkTime(db.Model):
@@ -463,6 +480,14 @@ def initializeDatabase():
             migrations.append(
                 'ALTER TABLE "cost" ADD COLUMN "saleAmount" FLOAT NOT NULL DEFAULT 0'
             )
+        if "markup" not in costColumns:
+            migrations.append(
+                'ALTER TABLE "cost" ADD COLUMN "markup" VARCHAR(10) NOT NULL DEFAULT \'manual\''
+            )
+        if "quantity" not in costColumns:
+            migrations.append(
+                'ALTER TABLE "cost" ADD COLUMN "quantity" FLOAT NOT NULL DEFAULT 1'
+            )
 
     if "user" in tableNames:
         userColumns = {
@@ -525,6 +550,31 @@ def parseFormAmount(value):
     if value is None or str(value).strip() == "":
         return 0
     return float(str(value).replace(",", "."))
+
+
+def parseFormQuantity(value):
+    if value is None or str(value).strip() == "":
+        return 1
+    return float(str(value).replace(",", "."))
+
+
+def parseFormMarkup(value):
+    return value if value in MARKUP_PERCENTAGES else MARKUP_MANUAL
+
+
+def calculateSaleAmount(markup, amount, manualSaleAmount):
+    if markup == MARKUP_MANUAL:
+        return manualSaleAmount
+    return round(amount * (1 + MARKUP_PERCENTAGES[markup] / 100), 2)
+
+
+def applyCostForm(cost, form):
+    cost.amount = parseFormAmount(form.get("amount"))
+    cost.quantity = parseFormQuantity(form.get("quantity"))
+    cost.markup = parseFormMarkup(form.get("markup"))
+    cost.saleAmount = calculateSaleAmount(
+        cost.markup, cost.amount, parseFormAmount(form.get("saleAmount"))
+    )
 
 
 def parseFormInteger(value):
@@ -922,6 +972,7 @@ def injectCurrentUser():
     return {
         "currentUser": currentUser(),
         "roleOptions": ROLE_OPTIONS,
+        "markupOptions": MARKUP_OPTIONS,
     }
 
 
@@ -1557,19 +1608,15 @@ def order(orderId):
             return closedOrderRedirect(orderItem)
 
         if "cost_submit" in request.form:
-            db.session.add(
-                Cost(
-                    description=request.form.get("description", "").strip(),
-                    amount=parseFormAmount(request.form.get("amount")),
-                    saleAmount=parseFormAmount(
-                        request.form.get("saleAmount")
-                    ),
-                    person=request.form.get("person", "").strip(),
-                    date=parseFormDate(request.form.get("date")),
-                    order=orderItem,
-                )
+            newCost = Cost(
+                description=request.form.get("description", "").strip(),
+                person=request.form.get("person", "").strip(),
+                date=parseFormDate(request.form.get("date")),
+                order=orderItem,
             )
-            message = "Ausgabe wurde hinzugefügt."
+            applyCostForm(newCost, request.form)
+            db.session.add(newCost)
+            message = "Position wurde hinzugefügt."
         elif "time_submit" in request.form:
             db.session.add(
                 WorkTime(
@@ -1761,12 +1808,11 @@ def editCost(costId):
 
     if request.method == "POST":
         cost.description = request.form.get("description", "").strip()
-        cost.amount = parseFormAmount(request.form.get("amount"))
-        cost.saleAmount = parseFormAmount(request.form.get("saleAmount"))
+        applyCostForm(cost, request.form)
         cost.person = request.form.get("person", "").strip()
         cost.date = parseFormDate(request.form.get("date"))
         db.session.commit()
-        flash("Ausgabe wurde gespeichert.", "success")
+        flash("Position wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=cost.order.id))
 
     userOptions = selectableUsersForOrder(cost.order)
@@ -1844,7 +1890,7 @@ def deleteCost(costId):
 
     db.session.delete(cost)
     db.session.commit()
-    flash("Ausgabe wurde gelöscht.", "success")
+    flash("Position wurde gelöscht.", "success")
     return redirect(url_for("order", orderId=orderItem.id))
 
 

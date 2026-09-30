@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ order.title }} · Vehicle Manager{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='cost_markup.js') }}" defer></script>{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>
@@ -38,7 +39,7 @@
 
 {% if order.isClosed %}
     <div class="alert alert-info">
-        Dieser Auftrag ist abgeschlossen und schreibgeschützt. Ausgaben, Arbeitszeiten,
+        Dieser Auftrag ist abgeschlossen und schreibgeschützt. Positionen, Arbeitszeiten,
         Einnahmen und Auftragsdaten können nicht mehr geändert oder gelöscht werden.
     </div>
 {% endif %}
@@ -128,15 +129,27 @@
 {% if currentUser.canModifyVehicles and not order.isClosed %}
 <div class="grid">
     <section class="card span-4">
-        <h2>Ausgabe hinzufügen</h2>
+        <h2>Position hinzufügen</h2>
         <form method="post">
             <div class="field">
                 <label>Beschreibung</label>
                 <input type="text" name="description" required>
             </div>
             <div class="field">
+                <label>Menge</label>
+                <input type="number" step="any" min="0" name="quantity" value="1" required>
+            </div>
+            <div class="field">
                 <label>EK (€)</label>
                 <input type="number" step="0.01" min="0" name="amount" required>
+            </div>
+            <div class="field">
+                <label>Aufschlag auf EK</label>
+                <select name="markup">
+                    {% for value, label in markupOptions %}
+                    <option value="{{ value }}" {{ 'selected' if value == 'ek' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="field">
                 <label>VK (€)</label>
@@ -153,7 +166,7 @@
                 <label>Datum und Uhrzeit</label>
                 <input type="datetime-local" name="date">
             </div>
-            <button class="btn btn-primary" type="submit" name="cost_submit">Ausgabe speichern</button>
+            <button class="btn btn-primary" type="submit" name="cost_submit">Position speichern</button>
         </form>
     </section>
 
@@ -212,26 +225,28 @@
 {% endif %}
 
 <section class="card" style="margin-top: 22px">
-    <div class="card-header"><h2>Ausgaben</h2><strong>EK {{ directCost|currency }} €</strong></div>
+    <div class="card-header"><h2>Positionen</h2><strong>EK {{ directCost|currency }} €</strong></div>
     {% if costs %}
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">EK</th><th class="number">VK</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Menge</th><th class="number">EK</th><th class="number">VK</th><th class="number">Preis</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for cost in costs %}
                 <tr>
                     <td>{{ cost.date|dateTime }}</td>
                     <td>{{ cost.description }}</td>
                     <td>{{ cost.person }}</td>
+                    <td class="number">{{ '%g'|format(cost.quantity or 0) }}</td>
                     <td class="number">{{ cost.amount|currency }} €</td>
                     <td class="number">{{ cost.saleAmount|currency }} €</td>
+                    <td class="number">{{ cost.price|currency }} €</td>
                     {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editCost', costId=cost.id) }}">Bearbeiten</a></td>{% endif %}
                 </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
-    {% else %}<div class="empty">Noch keine Ausgaben erfasst.</div>{% endif %}
+    {% else %}<div class="empty">Noch keine Positionen erfasst.</div>{% endif %}
 </section>
 
 <section class="card">

@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Ausgabe bearbeiten · Vehicle Manager{% endblock %}
+{% block title %}Position bearbeiten · Vehicle Manager{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='cost_markup.js') }}" defer></script>{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>
-        <h1>Ausgabe bearbeiten</h1>
+        <h1>Position bearbeiten</h1>
         <p>{{ cost.order.title }}</p>
     </div>
 </div>
@@ -14,11 +15,23 @@
             <input id="description" type="text" name="description" value="{{ cost.description }}" required>
         </div>
         <div class="grid">
-            <div class="field span-6">
+            <div class="field span-4">
+                <label for="quantity">Menge</label>
+                <input id="quantity" type="number" step="any" min="0" name="quantity" value="{{ '%g'|format(cost.quantity if cost.quantity is not none else 1) }}" required>
+            </div>
+            <div class="field span-4">
                 <label for="amount">EK (€)</label>
                 <input id="amount" type="number" step="0.01" min="0" name="amount" value="{{ cost.amount }}" required>
             </div>
-            <div class="field span-6">
+            <div class="field span-4">
+                <label for="markup">Aufschlag auf EK</label>
+                <select id="markup" name="markup">
+                    {% for value, label in markupOptions %}
+                    <option value="{{ value }}" {{ 'selected' if value == cost.markup }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field span-4">
                 <label for="saleAmount">VK (€)</label>
                 <input id="saleAmount" type="number" step="0.01" min="0" name="saleAmount" value="{{ cost.saleAmount or 0 }}" required>
             </div>
@@ -40,10 +53,10 @@
     </form>
 </div>
 <div class="card">
-    <h2>Ausgabe löschen</h2>
+    <h2>Position löschen</h2>
     <form method="post" action="{{ url_for('deleteCost', costId=cost.id) }}"
-          onsubmit="return confirm('Diese Ausgabe endgültig löschen?')">
-        <button class="btn btn-danger" type="submit">Ausgabe löschen</button>
+          onsubmit="return confirm('Diese Position endgültig löschen?')">
+        <button class="btn btn-danger" type="submit">Position löschen</button>
     </form>
 </div>
 {% endblock %}

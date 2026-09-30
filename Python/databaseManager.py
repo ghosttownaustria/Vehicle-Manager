@@ -205,9 +205,11 @@ def listAllDetails():
                 )
             for cost in order.costs:
                 print(
-                    f"    Ausgabe: {cost.description} - "
+                    f"    Position: {cost.description} - "
+                    f"Menge {(cost.quantity or 0):g}, "
                     f"EK {(cost.amount or 0):.2f} €, "
-                    f"VK {(cost.saleAmount or 0):.2f} €"
+                    f"VK {(cost.saleAmount or 0):.2f} €, "
+                    f"Preis {cost.price:.2f} €"
                 )
             for workTime in order.times:
                 print(
@@ -293,6 +295,8 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                         "description": cost.description,
                         "amount": cost.amount,
                         "saleAmount": cost.saleAmount,
+                        "quantity": cost.quantity,
+                        "markup": cost.markup,
                         "person": cost.person,
                         "date": cost.date.isoformat() if cost.date else None,
                     }
@@ -570,6 +574,10 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                                     )
                                     or 0
                                 ),
+                                quantity=float(
+                                    costData.get("quantity", 1) or 0
+                                ),
+                                markup=costData.get("markup") or "manual",
                                 person=costData.get("person", ""),
                                 date=parseDate(costData.get("date")),
                             )

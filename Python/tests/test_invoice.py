@@ -77,58 +77,5 @@ class InvoiceTests(unittest.TestCase):
         self.assertTrue(response.data.startswith(b"%PDF"))
 
 
-class ServicePlanTests(InvoiceTests):
-    def test_service_plan_form_lists_intervals_and_checks(self):
-        from app import ServiceInterval
-
-        vehicle = self.order.vehicle
-        vehicle.serviceIntervals.append(
-            ServiceInterval(work="engine_oil", kilometers=15000, months=12)
-        )
-        db.session.commit()
-        response = self.client.get(f"/vehicle/{vehicle.id}/serviceplan")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Ölwechsel".encode(), response.data)
-        self.assertIn("Fahrzeugcheck".encode(), response.data)
-
-    def test_only_due_intervals_are_preselected(self):
-        from datetime import date
-
-        from app import isServiceIntervalDue
-
-        entry = type("Entry", (), {})()
-        item = {"lastEntry": entry, "dueMileage": 20000, "dueDate": date(2030, 1, 1)}
-        today = date(2026, 1, 1)
-        self.assertFalse(isServiceIntervalDue(item, 15000, today))
-        self.assertTrue(isServiceIntervalDue(item, 20000, today))
-        self.assertTrue(isServiceIntervalDue(item, 100, date(2030, 1, 1)))
-        self.assertTrue(isServiceIntervalDue({**item, "lastEntry": None}, 0, today))
-
-    def test_service_plan_pdf_is_generated(self):
-        from app import ServiceInterval
-
-        vehicle = self.order.vehicle
-        vehicle.serviceIntervals.append(
-            ServiceInterval(work="inspection", kilometers=None, months=12)
-        )
-        db.session.commit()
-        response = self.client.post(
-            f"/vehicle/{vehicle.id}/serviceplan",
-            data={
-                "interval": ["inspection", "bogus"],
-                "task": ["vehicle_check:0", "oil_service:2", "nope:9"],
-                "extraTasks": "Scheibe tauschen\n\n",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data.startswith(b"%PDF"))
-
-    def test_service_plan_pdf_without_selection(self):
-        response = self.client.post(
-            f"/vehicle/{self.order.vehicle.id}/serviceplan", data={}
-        )
-        self.assertTrue(response.data.startswith(b"%PDF"))
-
-
 if __name__ == "__main__":
     unittest.main()

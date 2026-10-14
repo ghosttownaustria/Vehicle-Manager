@@ -45,6 +45,63 @@
     </div>
 {% endif %}
 
+<section class="card" id="service-plan" style="margin-bottom: 22px">
+    {% set planItemCount = servicePlanIntervalItems|length + servicePlanTaskGroups|map('last')|map('length')|sum %}
+    {% set canEditPlan = currentUser.canModifyVehicles and not order.isClosed %}
+    <div class="card-header">
+        <h2>Serviceplan</h2>
+        {% if planItemCount %}
+            <strong>{{ order.servicePlanItems|selectattr('isDone')|list|length }} von {{ planItemCount }} erledigt</strong>
+        {% endif %}
+    </div>
+
+    {% if planItemCount %}
+        <form method="post" action="{{ url_for('checkServicePlan', orderId=order.id) }}">
+            {% if servicePlanIntervalItems %}
+                <h3>Wartung nach Intervall</h3>
+                <div class="checkbox-list">
+                    {% for item in servicePlanIntervalItems %}
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="done" value="{{ item.id }}"{% if item.isDone %} checked{% endif %}{% if not canEditPlan %} disabled{% else %} onchange="this.form.submit()"{% endif %}>
+                            <span>{{ item.label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% for groupTitle, groupItems in servicePlanTaskGroups %}
+                <h3>{{ groupTitle }}</h3>
+                <div class="checkbox-list">
+                    {% for item in groupItems %}
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="done" value="{{ item.id }}"{% if item.isDone %} checked{% endif %}{% if not canEditPlan %} disabled{% else %} onchange="this.form.submit()"{% endif %}>
+                            <span>{{ item.label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </form>
+        {% if currentUser.canModifyVehicles %}
+            <div class="actions" style="margin-top: 16px">
+                <a class="btn btn-secondary btn-sm" href="{{ url_for('printServicePlan', orderId=order.id) }}">Serviceplan als PDF</a>
+                {% if canEditPlan %}
+                    <a class="btn btn-secondary btn-sm" href="{{ url_for('servicePlan', orderId=order.id) }}">Bearbeiten</a>
+                    <form method="post" action="{{ url_for('deleteServicePlan', orderId=order.id) }}"
+                          onsubmit="return confirm('Serviceplan wirklich löschen?')">
+                        <button class="btn btn-secondary btn-sm" type="submit">Löschen</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="empty">Für diesen Auftrag gibt es noch keinen Serviceplan.</div>
+        {% if canEditPlan %}
+            <div class="actions" style="margin-top: 16px">
+                <a class="btn btn-primary btn-sm" href="{{ url_for('servicePlan', orderId=order.id) }}">Serviceplan erstellen</a>
+            </div>
+        {% endif %}
+    {% endif %}
+</section>
+
 <section class="card" style="margin-bottom: 22px">
     <div class="card-header">
         <h2>Angehängte Fahrzeuge</h2>

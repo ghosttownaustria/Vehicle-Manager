@@ -782,9 +782,13 @@ def buildVehiclePdf(vehicle, totals):
 
 
 class CheckBox(Flowable):
-    """Empty square that can be ticked by hand."""
+    """Square that is empty for ticking by hand, or crossed when already done."""
 
     SIZE = 3.4 * mm
+
+    def __init__(self, isChecked=False):
+        super().__init__()
+        self.isChecked = isChecked
 
     def wrap(self, availableWidth, availableHeight):
         return self.SIZE, self.SIZE
@@ -792,6 +796,10 @@ class CheckBox(Flowable):
     def draw(self):
         self.canv.setLineWidth(0.7)
         self.canv.rect(0, 0, self.SIZE, self.SIZE)
+        if self.isChecked:
+            self.canv.setLineWidth(1.2)
+            self.canv.line(0.7 * mm, 1.7 * mm, 1.5 * mm, 0.8 * mm)
+            self.canv.line(1.5 * mm, 0.8 * mm, 2.8 * mm, 2.8 * mm)
 
 
 def formatKilometers(value):
@@ -830,7 +838,7 @@ def servicePlanDueText(item):
 def servicePlanIntervalTable(intervals, styles):
     rows = [
         [
-            CheckBox(),
+            CheckBox(item.get("isDone", False)),
             Paragraph(safeText(item["label"]), styles["body"]),
             Paragraph(servicePlanIntervalText(item), styles["body"]),
             Paragraph(servicePlanLastText(item), styles["body"]),
@@ -857,10 +865,10 @@ def servicePlanIntervalTable(intervals, styles):
 def servicePlanTaskTable(title, tasks, styles):
     rows = [
         [
-            CheckBox(),
+            CheckBox(isDone),
             Paragraph(safeText(task), styles["body"]),
         ]
-        for task in tasks
+        for task, isDone in tasks
     ]
     return sectionTable(
         title,
@@ -895,8 +903,8 @@ def servicePlanSignatureTable(styles):
     return table
 
 
-def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None):
-    """intervals: interval overview dicts, taskGroups: [(title, [task])]."""
+def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None, heading=""):
+    """intervals: overview dicts, taskGroups: [(title, [(task, isDone)])]."""
     styles = pdfStyles()
     buffer = io.BytesIO()
     document = createDocument(
@@ -904,7 +912,7 @@ def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None):
         f"Serviceplan {vehicle.displayName}",
         vehicle,
         "Serviceplan",
-        vehicle.licensePlate,
+        heading or vehicle.licensePlate,
     )
 
     mileageText = (

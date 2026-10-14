@@ -72,19 +72,29 @@ SERVICE_PLAN_CHECK_GROUPS = [
 ]
 
 
+EXTRA_GROUP_KEY = "extra"
+EXTRA_GROUP_TITLE = "Zusätzliche Arbeiten"
+
+# Standard works and categories a finished checklist group implies in the history.
+GROUP_WORKS = {
+    "oil_service": ["engine_oil", "oil_filter"],
+    "wheel_change": ["wheel_change"],
+    "pre_inspection": ["inspection"],
+}
+GROUP_CATEGORIES = {
+    "wheel_change": "tires",
+    "pre_inspection": "inspection",
+}
+
+
 def servicePlanTaskKey(groupKey, index):
     return f"{groupKey}:{index}"
 
 
-def resolveServicePlanTasks(selectedKeys):
-    """Return [(groupTitle, [task])] for the selected keys, in catalogue order."""
-    selected = set(selectedKeys)
-    groups = []
-    for groupKey, title, tasks in SERVICE_PLAN_CHECK_GROUPS:
-        chosen = [
-            task for index, task in enumerate(tasks)
-            if servicePlanTaskKey(groupKey, index) in selected
-        ]
-        if chosen:
-            groups.append((title, chosen))
-    return groups
+def servicePlanCatalogue():
+    """Return {taskKey: (groupKey, groupTitle, taskText)} for all standard tasks."""
+    return {
+        servicePlanTaskKey(groupKey, index): (groupKey, title, task)
+        for groupKey, title, tasks in SERVICE_PLAN_CHECK_GROUPS
+        for index, task in enumerate(tasks)
+    }

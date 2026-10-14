@@ -16,7 +16,6 @@
     <div class="actions">
         {% if currentUser.canModifyVehicles %}
             <a class="btn btn-secondary" href="{{ url_for('printVehicle', vehicleId=vehicle.id) }}">PDF</a>
-            <a class="btn btn-secondary" href="{{ url_for('servicePlan', vehicleId=vehicle.id) }}">Serviceplan drucken</a>
             <a class="btn btn-secondary" href="{{ url_for('editVehicle', vehicleId=vehicle.id) }}">Bearbeiten</a>
             <a class="btn btn-primary" href="{{ url_for('addOrder', vehicleId=vehicle.id) }}">Neuer Auftrag</a>
         {% endif %}

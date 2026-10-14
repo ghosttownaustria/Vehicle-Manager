@@ -12,6 +12,12 @@
     <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id, _anchor='service-history') }}">Zur Servicehistorie</a>
 </div>
 
+{% if prefillOrder %}
+    <div class="alert alert-info" role="status">
+        Vorbereitet aus dem Serviceplan des Auftrags &bdquo;{{ prefillOrder.title }}&ldquo;: Die erledigten Arbeiten sind bereits ausgewählt. Bitte Kilometerstand eintragen und speichern.
+    </div>
+{% endif %}
+
 {% if formErrors %}
     <div class="alert alert-danger" role="alert">
         <strong>Bitte prüfe deine Angaben:</strong>

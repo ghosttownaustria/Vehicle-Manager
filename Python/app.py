@@ -27,8 +27,12 @@ from pdfReports import (
     buildVehiclePdf,
 )
 from servicePlanTasks import (
+    EXTRA_GROUP_KEY,
+    EXTRA_GROUP_TITLE,
+    GROUP_CATEGORIES,
+    GROUP_WORKS,
     SERVICE_PLAN_CHECK_GROUPS,
-    resolveServicePlanTasks,
+    servicePlanCatalogue,
     servicePlanTaskKey,
 )
 from sqlalchemy import inspect, text
@@ -333,12 +337,33 @@ class Order(db.Model):
         lazy=True,
         cascade="all, delete-orphan",
     )
+    servicePlanItems = db.relationship(
+        "ServicePlanItem",
+        backref="order",
+        lazy=True,
+        cascade="all, delete-orphan",
+        order_by="ServicePlanItem.position",
+    )
     attachedVehicles = db.relationship(
         "Vehicle",
         secondary=orderAttachedVehicle,
         lazy=True,
         backref=db.backref("attachedToOrders", lazy=True),
     )
+
+
+class ServicePlanItem(db.Model):
+    """One line of an order's service plan: an interval work or a checklist task."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(
+        db.Integer, db.ForeignKey("order.id"), nullable=False, index=True,
+    )
+    kind = db.Column(db.String(20), nullable=False)
+    key = db.Column(db.String(80), nullable=False)
+    label = db.Column(db.String(200), nullable=False)
+    isDone = db.Column(db.Boolean, nullable=False, default=False)
+    position = db.Column(db.Integer, nullable=False, default=0)
 
 
 HISTORY_OIL_FIELDS = (
@@ -1514,6 +1539,16 @@ def serviceHistoryForm(vehicleItem, entry=None):
         field: (getattr(entry, field) or "") if entry else ""
         for field, _, _ in HISTORY_OIL_FIELDS
     })
+    prefillOrder = None
+    if entry is None and request.method == "GET":
+        prefillOrderId = request.args.get("fromOrder", type=int)
+        prefillOrder = next(
+            (item for item in availableOrders
+             if item.id == prefillOrderId and item.servicePlanItems),
+            None,
+        )
+        if prefillOrder:
+            formValues.update(serviceHistoryPrefillFromPlan(prefillOrder))
     if request.method == "POST":
         formValues = {
             key: request.form.get(key, "").strip()
@@ -1567,6 +1602,7 @@ def serviceHistoryForm(vehicleItem, entry=None):
         entry=entry,
         formValues=formValues,
         formErrors=formErrors,
+        prefillOrder=prefillOrder,
         historyOilFields=HISTORY_OIL_FIELDS,
         availableOrders=availableOrders,
         serviceCategories=SERVICE_CATEGORIES,
@@ -1919,6 +1955,10 @@ def order(orderId):
         directIncome=directIncome,
         directHours=directHours,
         attachedVehicleSummaries=attachedVehicleSummaries,
+        servicePlanIntervalItems=[
+            item for item in orderItem.servicePlanItems if item.kind == "interval"
+        ],
+        servicePlanTaskGroups=groupServicePlanTasks(orderItem.servicePlanItems),
         attachableVehicles=attachableVehicles,
         personUserOptions=personUserOptions,
         personUserOptionValues=userOptionValues(personUserOptions),
@@ -1964,6 +2004,12 @@ def closeOrder(orderId):
             "Auftrag abgeschlossen. Er ist ab jetzt schreibgeschützt.",
             "success",
         )
+        if orderItem.servicePlanItems:
+            return redirect(url_for(
+                "addServiceHistory",
+                vehicleId=orderItem.vehicle_id,
+                fromOrder=orderItem.id,
+            ))
 
     return redirect(url_for("order", orderId=orderItem.id))
 
@@ -2225,15 +2271,10 @@ def invoiceOrder(orderId):
     )
 
 
-@app.route("/vehicle/<int:vehicleId>/serviceplan", methods=["GET", "POST"])
-@loginRequired
-def servicePlan(vehicleId):
-    vehicleItem = Vehicle.query.get_or_404(vehicleId)
-    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
-        return accessDeniedRedirect()
-
+def loadServicePlanContext(vehicleItem):
+    """Return (intervals, currentMileage) used by the plan form and the plan PDF."""
     historyEntries = (
-        ServiceHistoryEntry.query.filter_by(vehicle_id=vehicleId)
+        ServiceHistoryEntry.query.filter_by(vehicle_id=vehicleItem.id)
         .order_by(ServiceHistoryEntry.date.desc(), ServiceHistoryEntry.id.desc())
         .all()
     )
@@ -2245,40 +2286,184 @@ def servicePlan(vehicleId):
         + [entry.mileage for entry in vehicleItem.fuelEntries if entry.mileage is not None],
         default=None,
     )
-
     for item in intervals:
         item["isDue"] = isServiceIntervalDue(item, currentMileage, date.today())
+    return intervals, currentMileage
+
+
+def buildServicePlanItems(form, intervals):
+    """Create plan items from the selection form, in display order."""
+    selectedWorks = set(form.getlist("interval"))
+    selectedTasks = set(form.getlist("task"))
+    items = [
+        ServicePlanItem(kind="interval", key=item["work"], label=item["label"])
+        for item in intervals
+        if item["work"] in selectedWorks
+    ]
+    items.extend(
+        ServicePlanItem(kind="task", key=key, label=text)
+        for key, (_, _, text) in servicePlanCatalogue().items()
+        if key in selectedTasks
+    )
+    extraTasks = [
+        line.strip()[:200]
+        for line in form.get("extraTasks", "").splitlines()
+        if line.strip()
+    ][:30]
+    items.extend(
+        ServicePlanItem(kind="task", key=f"{EXTRA_GROUP_KEY}:{index}", label=text)
+        for index, text in enumerate(extraTasks)
+    )
+    return items
+
+
+def replaceServicePlanItems(orderItem, newItems):
+    """Swap the plan items, keeping the done state of lines that stay."""
+    doneKeys = {item.key for item in orderItem.servicePlanItems if item.isDone}
+    for position, item in enumerate(newItems):
+        item.position = position
+        item.isDone = item.key in doneKeys
+    orderItem.servicePlanItems = newItems
+
+
+def groupServicePlanTasks(items):
+    """Return [(groupTitle, [item])] for the task items in plan order."""
+    catalogue = servicePlanCatalogue()
+    groups = {}
+    for item in items:
+        if item.kind != "task":
+            continue
+        title = catalogue[item.key][1] if item.key in catalogue else EXTRA_GROUP_TITLE
+        groups.setdefault(title, []).append(item)
+    return list(groups.items())
+
+
+def serviceHistoryPrefillFromPlan(orderItem):
+    """Derive history form defaults from the done lines of an order's service plan."""
+    catalogue = servicePlanCatalogue()
+    doneItems = [item for item in orderItem.servicePlanItems if item.isDone]
+    works = [item.key for item in doneItems if item.kind == "interval"]
+    categories = ["service"]
+    for item in doneItems:
+        groupKey = catalogue[item.key][0] if item.key in catalogue else None
+        works.extend(GROUP_WORKS.get(groupKey, []))
+        if groupKey in GROUP_CATEGORIES:
+            categories.append(GROUP_CATEGORIES[groupKey])
+    if "inspection" in works:
+        categories.append("inspection")
+    lines = [f"Auftrag: {orderItem.title}"] + [f"- {item.label}" for item in doneItems]
+    return {
+        "categories": list(dict.fromkeys(categories)),
+        "works": list(dict.fromkeys(works)),
+        "description": "\n".join(lines),
+        "orderIds": [str(orderItem.id)],
+    }
+
+
+def servicePlanOrderOr404(orderId, allowClosed=False):
+    """Load an order the user may edit the plan of; return (order, redirectResponse)."""
+    orderItem = Order.query.get_or_404(orderId)
+    if not canModifyVehicleData() or not canAccessOrder(orderItem):
+        return orderItem, accessDeniedRedirect()
+    if orderItem.isClosed and not allowClosed:
+        return orderItem, closedOrderRedirect(orderItem)
+    return orderItem, None
+
+
+@app.route("/order/<int:orderId>/serviceplan", methods=["GET", "POST"])
+@loginRequired
+def servicePlan(orderId):
+    orderItem, denied = servicePlanOrderOr404(orderId)
+    if denied:
+        return denied
+    intervals, currentMileage = loadServicePlanContext(orderItem.vehicle)
 
     if request.method == "POST":
-        selectedWorks = set(request.form.getlist("interval"))
-        taskGroups = resolveServicePlanTasks(request.form.getlist("task"))
-        extraTasks = [
-            line.strip()[:200]
-            for line in request.form.get("extraTasks", "").splitlines()
-            if line.strip()
-        ][:30]
-        if extraTasks:
-            taskGroups.append(("Zusätzliche Arbeiten", extraTasks))
-        buffer = buildServicePlanPdf(
-            vehicleItem,
-            [item for item in intervals if item["work"] in selectedWorks],
-            taskGroups,
-            currentMileage,
-        )
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=f"serviceplan_{vehicleItem.id}.pdf",
-            mimetype="application/pdf",
-        )
+        newItems = buildServicePlanItems(request.form, intervals)
+        if not newItems:
+            flash("Bitte mindestens eine Arbeit für den Serviceplan auswählen.", "danger")
+            return redirect(url_for("servicePlan", orderId=orderItem.id))
+        replaceServicePlanItems(orderItem, newItems)
+        db.session.commit()
+        flash("Serviceplan wurde gespeichert.", "success")
+        return redirect(url_for("order", orderId=orderItem.id, _anchor="service-plan"))
 
+    savedItems = orderItem.servicePlanItems
     return render_template(
         "service_plan.html",
-        vehicle=vehicleItem,
+        order=orderItem,
+        vehicle=orderItem.vehicle,
         intervals=intervals,
         checkGroups=SERVICE_PLAN_CHECK_GROUPS,
         taskKey=servicePlanTaskKey,
         currentMileage=currentMileage,
+        selectedKeys={item.key for item in savedItems} if savedItems else None,
+        extraText="\n".join(
+            item.label for item in savedItems if item.key.startswith(f"{EXTRA_GROUP_KEY}:")
+        ),
+    )
+
+
+@app.route("/order/<int:orderId>/serviceplan/check", methods=["POST"])
+@loginRequired
+def checkServicePlan(orderId):
+    orderItem, denied = servicePlanOrderOr404(orderId)
+    if denied:
+        return denied
+    doneIds = set(request.form.getlist("done"))
+    for item in orderItem.servicePlanItems:
+        item.isDone = str(item.id) in doneIds
+    db.session.commit()
+    return redirect(url_for("order", orderId=orderItem.id, _anchor="service-plan"))
+
+
+@app.route("/order/<int:orderId>/serviceplan/delete", methods=["POST"])
+@loginRequired
+def deleteServicePlan(orderId):
+    orderItem, denied = servicePlanOrderOr404(orderId)
+    if denied:
+        return denied
+    orderItem.servicePlanItems = []
+    db.session.commit()
+    flash("Serviceplan wurde gelöscht.", "success")
+    return redirect(url_for("order", orderId=orderItem.id))
+
+
+@app.route("/order/<int:orderId>/serviceplan/pdf")
+@loginRequired
+def printServicePlan(orderId):
+    orderItem, denied = servicePlanOrderOr404(orderId, allowClosed=True)
+    if denied:
+        return denied
+    if not orderItem.servicePlanItems:
+        flash("Dieser Auftrag hat noch keinen Serviceplan.", "info")
+        return redirect(url_for("order", orderId=orderItem.id))
+
+    intervals, currentMileage = loadServicePlanContext(orderItem.vehicle)
+    overview = {item["work"]: item for item in intervals}
+    planIntervals = [
+        {
+            **overview.get(item.key, {
+                "label": item.label, "kilometers": None, "months": None,
+                "lastEntry": None, "dueMileage": None, "dueDate": None,
+            }),
+            "isDone": item.isDone,
+        }
+        for item in orderItem.servicePlanItems
+        if item.kind == "interval"
+    ]
+    taskGroups = [
+        (title, [(item.label, item.isDone) for item in items])
+        for title, items in groupServicePlanTasks(orderItem.servicePlanItems)
+    ]
+    buffer = buildServicePlanPdf(
+        orderItem.vehicle, planIntervals, taskGroups, currentMileage, orderItem.title,
+    )
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"serviceplan_{orderItem.id}.pdf",
+        mimetype="application/pdf",
     )
 
 

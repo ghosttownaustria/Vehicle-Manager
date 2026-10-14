@@ -72,3 +72,22 @@
         <input id="engineCode" type="text" name="engineCode" value="{{ vehicle.engineCode if vehicle else '' }}">
     </div>
 </div>
+
+<h2 class="section-title">Serviceintervalle</h2>
+<p class="hint">Pro Arbeit kann ein Intervall in Kilometern und/oder Monaten hinterlegt werden. Leere Felder bedeuten: kein Intervall. Die §57a-Begutachtung wird automatisch aus der Erstzulassung (Monat/Jahr) berechnet.</p>
+<div class="grid">
+    {% for work, label in standardWorkOptions if work != 'inspection' %}
+        {% set values = intervalValues[work] %}
+        <div class="field span-6">
+            <label for="intervalKm_{{ work }}">{{ label }}</label>
+            <div class="grid">
+                <div class="span-6">
+                    <input id="intervalKm_{{ work }}" type="number" name="intervalKm_{{ work }}" value="{{ values.km }}" min="1" max="1000000" step="1" inputmode="numeric" placeholder="km" aria-label="{{ label }}: Intervall in Kilometern">
+                </div>
+                <div class="span-6">
+                    <input id="intervalMonths_{{ work }}" type="number" name="intervalMonths_{{ work }}" value="{{ values.months }}" min="1" max="600" step="1" inputmode="numeric" placeholder="Monate" aria-label="{{ label }}: Intervall in Monaten">
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>

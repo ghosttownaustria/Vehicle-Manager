@@ -21,8 +21,10 @@ from app import (
     Vehicle,
     WorkTime,
     app,
+    applyServiceIntervals,
     db,
     initializeDatabase,
+    parseServiceIntervals,
     parseRole,
     parseHistoryOils,
     validateFuelEntryData,
@@ -263,6 +265,14 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
             "orders": [],
             "serviceHistory": [],
             "fuelEntries": [],
+            "serviceIntervals": [
+                {
+                    "work": interval.work,
+                    "kilometers": interval.kilometers,
+                    "months": interval.months,
+                }
+                for interval in vehicle.serviceIntervals
+            ],
         }
 
         for order in vehicle.orders:
@@ -417,6 +427,19 @@ def importServiceHistory(vehicle, historyData, sourceOrderMap):
             )
         )
     return len(historyData)
+
+
+def importServiceIntervals(vehicle, intervalData):
+    if not isinstance(intervalData, list):
+        raise ValueError("Die Serviceintervalle müssen eine Liste sein.")
+    kilometerValues = {}
+    monthValues = {}
+    for index, item in enumerate(intervalData, start=1):
+        if not isinstance(item, dict) or not isinstance(item.get("work"), str):
+            raise ValueError(f"Serviceintervall {index} ist ungültig.")
+        kilometerValues[item["work"]] = item.get("kilometers")
+        monthValues[item["work"]] = item.get("months")
+    applyServiceIntervals(vehicle, parseServiceIntervals(kilometerValues, monthValues))
 
 
 def importFuelEntries(vehicle, fuelData):
@@ -612,6 +635,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                     sourceOrderMap,
                 )
                 fuelCount += importFuelEntries(vehicle, vehicleData.get("fuelEntries", []))
+                importServiceIntervals(vehicle, vehicleData.get("serviceIntervals", []))
                 print(
                     f"  [{index}/{vehicleCount}] "
                     f"{vehicle.displayName or 'Unbenanntes Fahrzeug'}"

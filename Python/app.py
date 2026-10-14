@@ -1,3 +1,4 @@
+import calendar
 import os
 import re
 from datetime import date, datetime
@@ -17,6 +18,7 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from brandLogos import brandLogoUrl
 from historyProjection import projectMileage
+from inspectionSchedule import buildInspectionStatus
 from fuelStatistics import buildFuelStatistics
 from pdfReports import buildInvoicePdf, buildOrderPdf, buildVehiclePdf
 from sqlalchemy import inspect, text
@@ -274,6 +276,13 @@ class Vehicle(db.Model):
         cascade="all, delete-orphan",
         order_by="(FuelEntry.date, FuelEntry.id)",
     )
+    serviceIntervals = db.relationship(
+        "ServiceInterval",
+        backref="vehicle",
+        lazy=True,
+        cascade="all, delete-orphan",
+        order_by="ServiceInterval.id",
+    )
 
     @property
     def displayName(self):
@@ -365,6 +374,136 @@ class ServiceHistoryEntry(db.Model):
             name="service_history_mileage_range",
         ),
     )
+
+
+INSPECTION_WORK = "inspection"
+MAX_INTERVAL_KILOMETERS = 1000000
+MAX_INTERVAL_MONTHS = 600
+
+
+class ServiceInterval(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    vehicle_id = db.Column(
+        db.Integer, db.ForeignKey("vehicle.id"), nullable=False, index=True,
+    )
+    work = db.Column(db.String(50), nullable=False)
+    kilometers = db.Column(db.Integer)
+    months = db.Column(db.Integer)
+    __table_args__ = (
+        db.UniqueConstraint("vehicle_id", "work", name="service_interval_unique_work"),
+    )
+
+
+def parseIntervalNumber(value, maximum, label):
+    """Return a positive integer, or None when the field is empty."""
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return None
+    if (
+        isinstance(value, bool)
+        or not text.isascii()
+        or not text.isdecimal()
+        or not 0 < int(text) <= maximum
+    ):
+        raise ValueError(f"{label}: Bitte eine ganze Zahl zwischen 1 und {maximum} angeben.")
+    return int(text)
+
+
+def parseServiceIntervals(kilometerValues, monthValues):
+    """Validate intervals keyed by work value; empty rows are dropped."""
+    workLabels = dict(STANDARD_WORK_OPTIONS)
+    intervals = {}
+    for work in kilometerValues.keys() | monthValues.keys():
+        if work not in workLabels:
+            raise ValueError("Die ausgewählte Standardarbeit ist ungültig.")
+        label = workLabels[work]
+        kilometers = parseIntervalNumber(
+            kilometerValues.get(work), MAX_INTERVAL_KILOMETERS, f"{label} (km)",
+        )
+        months = parseIntervalNumber(
+            monthValues.get(work), MAX_INTERVAL_MONTHS, f"{label} (Monate)",
+        )
+        if kilometers is not None or months is not None:
+            intervals[work] = (kilometers, months)
+    return intervals
+
+
+def parseServiceIntervalsFromForm(form):
+    return parseServiceIntervals(
+        {work: form.get(f"intervalKm_{work}", "") for work, _ in STANDARD_WORK_OPTIONS},
+        {work: form.get(f"intervalMonths_{work}", "") for work, _ in STANDARD_WORK_OPTIONS},
+    )
+
+
+def applyServiceIntervals(vehicleItem, intervals):
+    # Update rows in place: replacing them would insert before deleting and
+    # violate the unique (vehicle, work) constraint.
+    existing = {item.work: item for item in vehicleItem.serviceIntervals}
+    for work, item in existing.items():
+        if work not in intervals:
+            vehicleItem.serviceIntervals.remove(item)
+    for work, (kilometers, months) in intervals.items():
+        if work in existing:
+            existing[work].kilometers = kilometers
+            existing[work].months = months
+        else:
+            vehicleItem.serviceIntervals.append(
+                ServiceInterval(work=work, kilometers=kilometers, months=months)
+            )
+
+
+def serviceIntervalFormValues(vehicleItem=None, form=None):
+    """Return {work: {"km": str, "months": str}} for the vehicle form."""
+    if form is not None:
+        return {
+            work: {
+                "km": form.get(f"intervalKm_{work}", "").strip(),
+                "months": form.get(f"intervalMonths_{work}", "").strip(),
+            }
+            for work, _ in STANDARD_WORK_OPTIONS
+        }
+    stored = {item.work: item for item in vehicleItem.serviceIntervals} if vehicleItem else {}
+    return {
+        work: {
+            "km": str(stored[work].kilometers or "") if work in stored else "",
+            "months": str(stored[work].months or "") if work in stored else "",
+        }
+        for work, _ in STANDARD_WORK_OPTIONS
+    }
+
+
+def addMonths(startDate, months):
+    monthIndex = startDate.month - 1 + months
+    year = startDate.year + monthIndex // 12
+    month = monthIndex % 12 + 1
+    day = min(startDate.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def buildServiceIntervalOverview(vehicleItem, historyEntries):
+    """List each configured interval with the last service and the next due point."""
+    stored = {item.work: item for item in vehicleItem.serviceIntervals}
+    overview = []
+    for work, label in STANDARD_WORK_OPTIONS:
+        interval = stored.get(work)
+        if interval is None or work == INSPECTION_WORK:
+            continue
+        lastEntry = next((entry for entry in historyEntries if work in entry.works), None)
+        overview.append({
+            "label": label,
+            "kilometers": interval.kilometers,
+            "months": interval.months,
+            "lastEntry": lastEntry,
+            "dueMileage": (
+                lastEntry.mileage + interval.kilometers
+                if lastEntry and interval.kilometers else None
+            ),
+            "dueDate": (
+                addMonths(lastEntry.date, interval.months)
+                if lastEntry and interval.months else None
+            ),
+        })
+    return overview
 
 
 class FuelEntry(db.Model):
@@ -1155,6 +1294,15 @@ def addVehicle():
         return accessDeniedRedirect()
 
     if request.method == "POST":
+        try:
+            intervals = parseServiceIntervalsFromForm(request.form)
+        except ValueError as error:
+            flash(str(error), "danger")
+            return render_template(
+                "add_vehicle.html", users=allUsers(),
+                standardWorkOptions=STANDARD_WORK_OPTIONS,
+                intervalValues=serviceIntervalFormValues(form=request.form),
+            ), 400
         newVehicle = Vehicle(
             brand=request.form.get("brand", "").strip(),
             model=request.form.get("model", "").strip(),
@@ -1169,12 +1317,17 @@ def addVehicle():
             licensePlate=request.form.get("licensePlate", "").strip(),
         )
         newVehicle.assignedUsers = selectedUsersFromForm()
+        applyServiceIntervals(newVehicle, intervals)
         db.session.add(newVehicle)
         db.session.commit()
         flash("Fahrzeug wurde angelegt.", "success")
         return redirect(url_for("vehicle", vehicleId=newVehicle.id))
 
-    return render_template("add_vehicle.html", users=allUsers())
+    return render_template(
+        "add_vehicle.html", users=allUsers(),
+        standardWorkOptions=STANDARD_WORK_OPTIONS,
+        intervalValues=serviceIntervalFormValues(),
+    )
 
 
 @app.route("/vehicle/<int:vehicleId>")
@@ -1233,6 +1386,17 @@ def vehicle(vehicleId):
         for field, _, _ in HISTORY_OIL_FIELDS
     }
     historyCurvePoints = buildHistoryCurve(historyEntries, vehicleItem.fuelEntries)
+    serviceIntervalOverview = buildServiceIntervalOverview(vehicleItem, historyEntries)
+    lastInspection = next(
+        (entry for entry in historyEntries
+         if "inspection" in entry.works or "inspection" in entry.categories),
+        None,
+    )
+    inspectionStatus = buildInspectionStatus(
+        vehicleItem.firstRegistration,
+        lastInspection.date if lastInspection else None,
+        date.today(),
+    )
     # Casefold also handles German umlauts; search terms are literal substrings.
     historyEntries = [
         entry for entry in historyEntries
@@ -1256,6 +1420,8 @@ def vehicle(vehicleId):
         latestHistoryEntry=latestHistoryEntry,
         fuelStatistics=buildFuelStatistics(vehicleItem.fuelEntries),
         latestOils=latestOils,
+        serviceIntervalOverview=serviceIntervalOverview,
+        inspectionStatus=inspectionStatus,
         historyOilFields=HISTORY_OIL_FIELDS,
         historyCurvePoints=historyCurvePoints,
         historyProjection=projectMileage(historyCurvePoints),
@@ -1511,6 +1677,15 @@ def editVehicle(vehicleId):
         return accessDeniedRedirect()
 
     if request.method == "POST":
+        try:
+            intervals = parseServiceIntervalsFromForm(request.form)
+        except ValueError as error:
+            flash(str(error), "danger")
+            return render_template(
+                "edit_vehicle.html", vehicle=vehicleItem, users=allUsers(),
+                standardWorkOptions=STANDARD_WORK_OPTIONS,
+                intervalValues=serviceIntervalFormValues(form=request.form),
+            ), 400
         vehicleItem.brand = request.form.get("brand", "").strip()
         vehicleItem.model = request.form.get("model", "").strip()
         vehicleItem.vin = request.form.get("vin", "").strip()
@@ -1525,6 +1700,7 @@ def editVehicle(vehicleId):
         vehicleItem.engineCode = request.form.get("engineCode", "").strip()
         vehicleItem.licensePlate = request.form.get("licensePlate", "").strip()
         vehicleItem.assignedUsers = selectedUsersFromForm()
+        applyServiceIntervals(vehicleItem, intervals)
         db.session.commit()
         flash("Fahrzeugdaten wurden gespeichert.", "success")
         return redirect(url_for("vehicle", vehicleId=vehicleItem.id))
@@ -1533,6 +1709,8 @@ def editVehicle(vehicleId):
         "edit_vehicle.html",
         vehicle=vehicleItem,
         users=allUsers(),
+        standardWorkOptions=STANDARD_WORK_OPTIONS,
+        intervalValues=serviceIntervalFormValues(vehicleItem),
     )
 
 

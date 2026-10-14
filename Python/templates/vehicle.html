@@ -64,6 +64,7 @@
                     <div class="detail"><span class="detail-label">{{ oilLabel }}</span><span class="detail-value">{{ oilEntry[oilField] if oilEntry else (vehicle[oilField] or '–') }}</span></div>
                     <div class="detail"><span class="detail-label">Kraftstoff</span><span class="detail-value">{{ vehicle.fuel or '–' }}</span></div>
                     <div class="detail"><span class="detail-label">Motorkennbuchstabe</span><span class="detail-value">{{ vehicle.engineCode or '–' }}</span></div>
+                    <div class="detail"><span class="detail-label">§57a fällig</span><span class="detail-value">{{ inspectionStatus.dueMonth if inspectionStatus else '–' }}{% if inspectionStatus and inspectionStatus.isOverdue %} <span class="badge badge-open">Überfällig</span>{% endif %}</span></div>
                 </div>
             </section>
 
@@ -166,6 +167,56 @@
                 <div class="detail"><span class="detail-label">Motorkennbuchstabe</span><span class="detail-value">{{ vehicle.engineCode or '–' }}</span></div>
                 <div class="detail"><span class="detail-label">Benutzer</span><span class="detail-value">{{ vehicle.assignedUsers|userList }}</span></div>
             </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <h2>§57a Begutachtung</h2>
+            </div>
+            {% if inspectionStatus %}
+                <div class="details" style="grid-template-columns: 1fr">
+                    <div class="detail"><span class="detail-label">Nächste Begutachtung fällig</span><span class="detail-value">{{ inspectionStatus.dueMonth }}
+                        {% if inspectionStatus.isOverdue %}<span class="badge badge-open">Überfällig</span>{% elif inspectionStatus.isDueSoon %}<span class="badge badge-open">Bald fällig</span>{% endif %}
+                    </span></div>
+                </div>
+                <p class="hint">Berechnet aus der Erstzulassung: nach 3 Jahren, nach 5 Jahren, danach jährlich. Gültig bis Monatsende.</p>
+            {% else %}
+                <div class="empty">Für die Berechnung wird die Erstzulassung im Format MM/JJJJ benötigt.</div>
+            {% endif %}
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <h2>Serviceintervalle</h2>
+            </div>
+            {% if serviceIntervalOverview %}
+                <div class="details" style="grid-template-columns: 1fr">
+                    {% for item in serviceIntervalOverview %}
+                        <div class="detail">
+                            <span class="detail-label">{{ item.label }}</span>
+                            <span class="detail-value">
+                                {{ [
+                                    ('{:,}'.format(item.kilometers).replace(',', '.') ~ ' km') if item.kilometers else none,
+                                    (item.months ~ ' Monate') if item.months else none,
+                                ]|select|join(' / ') }}
+                                {% if item.lastEntry %}
+                                    <br><small class="muted">Zuletzt: {{ item.lastEntry.date.strftime('%d.%m.%Y') }} bei {{ '{:,}'.format(item.lastEntry.mileage).replace(',', '.') }} km
+                                    {%- if item.dueMileage or item.dueDate %} · Fällig:
+                                        {{ [
+                                            ('{:,}'.format(item.dueMileage).replace(',', '.') ~ ' km') if item.dueMileage else none,
+                                            item.dueDate.strftime('%d.%m.%Y') if item.dueDate else none,
+                                        ]|select|join(' oder ') }}
+                                    {%- endif %}</small>
+                                {% else %}
+                                    <br><small class="muted">Noch nicht in der Servicehistorie erfasst</small>
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty">Noch keine Serviceintervalle hinterlegt.{% if currentUser.canModifyVehicles %} Sie können unter „Bearbeiten“ festgelegt werden.{% endif %}</div>
+            {% endif %}
         </section>
     </div>
 

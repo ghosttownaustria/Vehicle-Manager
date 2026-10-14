@@ -1,6 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Rechnung drucken · Vehicle Manager{% endblock %}
-{% block head %}<script src="{{ url_for('static', filename='invoice.js') }}" defer></script>{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='invoice.js') }}" defer></script>
+<style>
+    .pick-box {
+        appearance: none;
+        -webkit-appearance: none;
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        margin: 0;
+        vertical-align: middle;
+        border: 2px solid var(--muted);
+        border-radius: 6px;
+        background: var(--field-bg);
+        cursor: pointer;
+        position: relative;
+        transition: background .12s, border-color .12s;
+    }
+    .pick-box:hover { border-color: var(--primary); }
+    .pick-box:checked { background: var(--primary); border-color: var(--primary); }
+    .pick-box:checked::after {
+        content: "";
+        position: absolute;
+        left: 6px;
+        top: 2px;
+        width: 6px;
+        height: 11px;
+        border: solid #ffffff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+    }
+    .pick-box:focus-visible { outline: 3px solid var(--accent-soft-border); outline-offset: 2px; }
+</style>{% endblock %}
 {% block content %}
 <div class="page-header">
     <div>
@@ -19,7 +50,7 @@
                 <tbody>
                 {% for cost in costs %}
                     <tr>
-                        <td><input type="checkbox" name="cost_id" value="{{ cost.id }}" data-price="{{ cost.price }}" checked aria-label="Position übernehmen"></td>
+                        <td><input type="checkbox" class="pick-box" name="cost_id" value="{{ cost.id }}" data-price="{{ cost.price }}"{% if (cost.saleAmount or 0) != 0 %} checked{% endif %} aria-label="Position übernehmen"></td>
                         <td>{{ cost.description }}</td>
                         <td class="number">{{ '%g'|format(cost.quantity or 0) }}</td>
                         <td class="number">{{ cost.saleAmount|currency }} €</td>
@@ -44,20 +75,49 @@
             {% endfor %}
         </div>
         {% endif %}
-        <div class="grid">
-            <div class="field span-4">
-                <label for="hours">Stunden auf der Rechnung</label>
-                <input id="hours" type="number" step="0.01" min="0" name="hours" value="{{ '%g'|format(loggedHours) }}" required>
+        <div id="worker-rows">
+        {% for person, hours in workerGroups %}
+        <div class="grid worker-row" style="margin-bottom: 12px">
+            <div class="field span-12">
+                <label>Bezeichnung auf der Rechnung: "Arbeitsstunden &hellip;"</label>
+                <input type="text" name="workerName" value="{{ person }}" placeholder="Name">
             </div>
             <div class="field span-4">
-                <label for="hourlyRate">Stundenlohn (€)</label>
-                <input id="hourlyRate" type="number" step="0.01" min="0" value="0">
+                <label>Stunden{% if person %} ({{ person }}){% endif %}</label>
+                <input type="number" step="0.01" min="0" name="workerHours" value="{{ '%g'|format(hours) }}" required>
             </div>
             <div class="field span-4">
-                <label for="hoursTotal">Gesamtkosten Stunden (€)</label>
-                <input id="hoursTotal" type="number" step="0.01" min="0" name="hoursTotal" value="0" required>
+                <label>Stundenlohn (&euro;)</label>
+                <input type="number" step="0.01" min="0" name="workerRate" value="0">
+            </div>
+            <div class="field span-4">
+                <label>Gesamtkosten Stunden (&euro;)</label>
+                <input type="number" step="0.01" min="0" name="workerTotal" value="0" required>
             </div>
         </div>
+        {% endfor %}
+        </div>
+    </section>
+
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header"><h2>Einnahmen</h2></div>
+        {% if incomes %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th></th><th>Beschreibung</th><th class="number">Betrag</th></tr></thead>
+                <tbody>
+                {% for income in incomes %}
+                    <tr>
+                        <td><input type="checkbox" class="pick-box" name="income_id" value="{{ income.id }}" data-amount="{{ income.amount or 0 }}"{% if (income.amount or 0) > 0 %} checked{% endif %} aria-label="Einnahme übernehmen"></td>
+                        <td>{{ income.description }}</td>
+                        <td class="number">{{ income.amount|currency }} €</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="hint">Gewählte Einnahmen werden auf der Rechnung unter &bdquo;Summe Sonstige&ldquo; abgezogen.</p>
+        {% else %}<div class="empty">Noch keine Einnahmen erfasst.</div>{% endif %}
     </section>
 
     <section class="card" style="margin-bottom: 22px">

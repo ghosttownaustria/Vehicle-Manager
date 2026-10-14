@@ -642,7 +642,7 @@ def formatNumber(value):
     return f"{value or 0:.1f}".replace(".", ",")
 
 
-def invoiceRows(costs, hours, hourlyRate, hoursTotal, discounts, roundingCents):
+def invoiceRows(costs, workers, discounts, roundingCents):
     """Build invoice rows as (kind, description, quantity, price, total) tuples.
 
     Kinds: "row" (plain line), "sum" (bold subtotal) and "gap" (empty spacer).
@@ -663,20 +663,27 @@ def invoiceRows(costs, hours, hourlyRate, hoursTotal, discounts, roundingCents):
             ("sum", "Summe Teile", "", "", formatCurrency(sum(i.price for i in costs)))
         )
         rows.append(("gap", "", "", "", ""))
-    if hours > 0 or hoursTotal > 0:
-        rows.extend(
-            [
+    if workers:
+        for name, hours, hoursTotal in workers:
+            rows.append(
                 (
                     "row",
-                    "Arbeitsstunden",
+                    f"Arbeitsstunden {name}".strip(),
                     formatNumber(hours),
-                    formatCurrency(hourlyRate),
+                    formatCurrency(hoursTotal / hours if hours > 0 else 0),
                     formatCurrency(hoursTotal),
-                ),
-                ("sum", "Summe Arbeitsstunden", "", "", formatCurrency(hoursTotal)),
-                ("gap", "", "", "", ""),
-            ]
+                )
+            )
+        rows.append(
+            (
+                "sum",
+                "Summe Arbeitsstunden",
+                "",
+                "",
+                formatCurrency(sum(total for _, _, total in workers)),
+            )
         )
+        rows.append(("gap", "", "", "", ""))
     deductionCents = 0
     for description, isPercent, value, cents in discounts:
         deductionCents += cents
@@ -770,7 +777,8 @@ def drawInvoicePage(pdfCanvas, document):
     pdfCanvas.restoreState()
 
 
-def buildInvoicePdf(order, costs, hours, hoursTotal, discounts=()):
+def buildInvoicePdf(order, costs, workers, discounts=()):
+    """workers is a list of (displayName, hours, hoursTotal) tuples."""
     styles = pdfStyles()
     buffer = io.BytesIO()
     document = SimpleDocTemplate(
@@ -786,8 +794,9 @@ def buildInvoicePdf(order, costs, hours, hoursTotal, discounts=()):
     document.vehicle = order.vehicle
     document.invoiceTitle = order.title or ""
 
-    hourlyRate = hoursTotal / hours if hours > 0 else 0
-    subtotal = sum(item.price for item in costs) + hoursTotal
+    subtotal = sum(item.price for item in costs) + sum(
+        total for _, _, total in workers
+    )
     discountLines, roundingCents = calculateInvoiceDiscounts(subtotal, discounts)
     discountRows = [
         (description, isPercent, value, cents)
@@ -798,9 +807,7 @@ def buildInvoicePdf(order, costs, hours, hoursTotal, discounts=()):
     totalCents = (
         toCents(subtotal) - sum(cents for _, cents in discountLines) - roundingCents
     )
-    rows = invoiceRows(
-        costs, hours, hourlyRate, hoursTotal, discountRows, roundingCents
-    )
+    rows = invoiceRows(costs, workers, discountRows, roundingCents)
     document.build(
         [invoiceTable(rows, totalCents / 100, styles)],
         onFirstPage=drawInvoicePage,

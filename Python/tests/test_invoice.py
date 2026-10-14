@@ -50,7 +50,7 @@ class InvoiceTests(unittest.TestCase):
     def test_invoice_pdf_is_generated(self):
         response = self.client.post(
             f"/order/{self.order.id}/invoice",
-            data={"cost_id": [str(self.order.costs[0].id)], "hours": "1.5", "hoursTotal": "90"},
+            data={"cost_id": [str(self.order.costs[0].id)], "workerName": ["Max", "Eva"], "workerHours": ["1", "0.5"], "workerTotal": ["60", "30"]},
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data.startswith(b"%PDF"))
@@ -69,8 +69,8 @@ class InvoiceTests(unittest.TestCase):
         response = self.client.post(
             f"/order/{self.order.id}/invoice",
             data={
-                "cost_id": [str(self.order.costs[0].id)], "hours": "1.5",
-                "hoursTotal": "90", "discountDescription": ["A", "B"],
+                "cost_id": [str(self.order.costs[0].id)], "workerName": ["Max"], "workerHours": ["1.5"],
+                "workerTotal": ["90"], "discountDescription": ["A", "B"],
                 "discountType": ["percent", "amount"], "discountValue": ["5", "1,11"],
             },
         )

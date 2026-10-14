@@ -3,11 +3,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!form) {
         return;
     }
-    const hoursInput = document.getElementById("hours");
-    const rateInput = document.getElementById("hourlyRate");
-    const hoursTotalInput = document.getElementById("hoursTotal");
+    const workerRows = form.querySelectorAll(".worker-row");
     const totalOutput = document.getElementById("invoice-total");
     const costBoxes = form.querySelectorAll("input[name='cost_id']");
+    const incomeBoxes = form.querySelectorAll("input[name='income_id']");
 
     const parse = (input) => {
         const value = parseFloat(input.value.replace(",", "."));
@@ -23,7 +22,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }) + " \u20ac";
 
     const updateTotal = () => {
-        let subtotal = parse(hoursTotalInput);
+        let subtotal = 0;
+        workerRows.forEach((row) => {
+            subtotal += parse(row.querySelector("[name='workerTotal']"));
+        });
         costBoxes.forEach((box) => {
             if (box.checked) {
                 subtotal += parseFloat(box.dataset.price);
@@ -31,6 +33,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         const subtotalCents = Math.round(subtotal * 100);
         let totalCents = subtotalCents;
+        incomeBoxes.forEach((box) => {
+            if (box.checked && parseFloat(box.dataset.amount) > 0) {
+                totalCents -= Math.round(parseFloat(box.dataset.amount) * 100);
+            }
+        });
         discountRows.querySelectorAll(".discount-row").forEach((row) => {
             const value = parse(row.querySelector("[name='discountValue']"));
             const isPercent = row.querySelector("[name='discountType']").value === "percent";
@@ -54,20 +61,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    const updateTotalFromRate = () => {
-        hoursTotalInput.value = round2(parse(rateInput) * parse(hoursInput)).toFixed(2);
-        updateTotal();
-    };
+    workerRows.forEach((row) => {
+        const hoursInput = row.querySelector("[name='workerHours']");
+        const rateInput = row.querySelector("[name='workerRate']");
+        const totalInput = row.querySelector("[name='workerTotal']");
 
-    const updateRateFromTotal = () => {
-        const hours = parse(hoursInput);
-        rateInput.value = hours > 0 ? round2(parse(hoursTotalInput) / hours).toFixed(2) : "0.00";
-        updateTotal();
-    };
+        const updateTotalFromRate = () => {
+            totalInput.value = round2(parse(rateInput) * parse(hoursInput)).toFixed(2);
+            updateTotal();
+        };
+        const updateRateFromTotal = () => {
+            const hours = parse(hoursInput);
+            rateInput.value = hours > 0 ? round2(parse(totalInput) / hours).toFixed(2) : "0.00";
+            updateTotal();
+        };
 
-    hoursInput.addEventListener("input", updateTotalFromRate);
-    rateInput.addEventListener("input", updateTotalFromRate);
-    hoursTotalInput.addEventListener("input", updateRateFromTotal);
+        hoursInput.addEventListener("input", updateTotalFromRate);
+        rateInput.addEventListener("input", updateTotalFromRate);
+        totalInput.addEventListener("input", updateRateFromTotal);
+    });
     costBoxes.forEach((box) => box.addEventListener("change", updateTotal));
+    incomeBoxes.forEach((box) => box.addEventListener("change", updateTotal));
     updateTotal();
 });

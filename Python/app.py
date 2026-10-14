@@ -849,17 +849,6 @@ def selectedUsersFromForm():
     return sortedUsers(User.query.filter(User.id.in_(userIds)).all())
 
 
-def selectableUsersForOrder(orderItem):
-    userMap = {}
-    relatedVehicles = [orderItem.vehicle, *orderItem.attachedVehicles]
-    for vehicleItem in relatedVehicles:
-        for user in vehicleItem.assignedUsers:
-            userMap[user.id] = user
-
-    users = sortedUsers(userMap.values())
-    return users or allUsers()
-
-
 def userOptionValues(users):
     values = set()
     for user in users:
@@ -1686,7 +1675,7 @@ def order(orderId):
     directCost = sum(item.purchaseTotal for item in orderItem.costs)
     directIncome = sum((item.amount or 0) for item in orderItem.incomes)
     directHours = sum((item.hours or 0) for item in orderItem.times)
-    personUserOptions = selectableUsersForOrder(orderItem)
+    personUserOptions = staffUsers()
     workTimeUserOptions = staffUsers()
     attachedVehicleSummaries = [
         totalsSummary(attachedVehicle, ownVehicleTotals(attachedVehicle))
@@ -1819,7 +1808,7 @@ def editCost(costId):
         flash("Position wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=cost.order.id))
 
-    userOptions = selectableUsersForOrder(cost.order)
+    userOptions = staffUsers()
     return render_template(
         "edit_cost.html",
         cost=cost,
@@ -1873,7 +1862,7 @@ def editIncome(incomeId):
         flash("Einnahme wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=income.order.id))
 
-    userOptions = selectableUsersForOrder(income.order)
+    userOptions = staffUsers()
     return render_template(
         "edit_income.html",
         income=income,
@@ -1962,6 +1951,31 @@ def parseInvoiceDiscounts(form):
     return discounts
 
 
+def parseInvoiceWorkers(form):
+    """Read worker rows as (displayName, hours, hoursTotal); skip empty rows."""
+    rows = zip(
+        form.getlist("workerName"),
+        form.getlist("workerHours"),
+        form.getlist("workerTotal"),
+    )
+    workers = []
+    for name, hours, total in rows:
+        hoursValue = max(parseFormAmount(hours), 0)
+        totalValue = max(parseFormAmount(total), 0)
+        if hoursValue > 0 or totalValue > 0:
+            workers.append((name.strip(), hoursValue, totalValue))
+    return workers
+
+
+def groupHoursByPerson(times):
+    """Return [(person, hours)] in order of first appearance."""
+    hoursByPerson = {}
+    for item in times:
+        person = (item.person or "").strip()
+        hoursByPerson[person] = hoursByPerson.get(person, 0) + (item.hours or 0)
+    return list(hoursByPerson.items())
+
+
 @app.route("/order/<int:orderId>/invoice", methods=["GET", "POST"])
 @loginRequired
 def invoiceOrder(orderId):
@@ -1970,22 +1984,27 @@ def invoiceOrder(orderId):
         return accessDeniedRedirect()
 
     costs = sorted(orderItem.costs, key=lambda item: item.date or datetime.min)
-    loggedHours = sum((item.hours or 0) for item in orderItem.times)
+    times = sorted(orderItem.times, key=lambda item: item.date or datetime.min)
+    incomes = sorted(orderItem.incomes, key=lambda item: item.date or datetime.min)
+    loggedHours = sum((item.hours or 0) for item in times)
 
     if request.method == "POST":
         selectedIds = set(request.form.getlist("cost_id"))
+        selectedIncomeIds = set(request.form.getlist("income_id"))
         try:
-            invoiceHours = max(parseFormAmount(request.form.get("hours")), 0)
-            hoursTotal = max(parseFormAmount(request.form.get("hoursTotal")), 0)
-            discounts = parseInvoiceDiscounts(request.form)
+            workers = parseInvoiceWorkers(request.form)
+            discounts = [
+                (item.description or "Einnahme", False, item.amount or 0)
+                for item in incomes
+                if str(item.id) in selectedIncomeIds and (item.amount or 0) > 0
+            ] + parseInvoiceDiscounts(request.form)
         except ValueError:
             flash("Bitte gültige Zahlen für Stunden, Kosten und Rabatte angeben.", "danger")
             return redirect(url_for("invoiceOrder", orderId=orderItem.id))
         buffer = buildInvoicePdf(
             orderItem,
             [item for item in costs if str(item.id) in selectedIds],
-            invoiceHours,
-            hoursTotal,
+            workers,
             discounts,
         )
         return send_file(
@@ -1999,8 +2018,10 @@ def invoiceOrder(orderId):
         "invoice.html",
         order=orderItem,
         costs=costs,
-        times=sorted(orderItem.times, key=lambda item: item.date or datetime.min),
+        incomes=incomes,
+        times=times,
         loggedHours=loggedHours,
+        workerGroups=groupHoursByPerson(times) or [("", 0)],
     )
 
 

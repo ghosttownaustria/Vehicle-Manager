@@ -7,7 +7,6 @@ from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     Flowable,
     Paragraph,
@@ -20,9 +19,9 @@ from reportlab.platypus import (
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
 CONTENT_WIDTH = PAGE_WIDTH - (36 * mm)
-TABLE_GRAY = colors.HexColor("#d9d9d9")
+FRAME_PADDING = 6  # default reportlab frame padding in points
+TABLE_WIDTH = CONTENT_WIDTH - (2 * FRAME_PADDING)
 TEXT_GRAY = colors.HexColor("#666666")
-NEGATIVE_RED = colors.HexColor("#ff0000")
 
 
 def formatCurrency(value):
@@ -138,108 +137,10 @@ def pdfStyles():
             leading=11,
             textColor=colors.black,
         ),
-        "negative": ParagraphStyle(
-            "GhostTownNegative",
-            parent=styles["Normal"],
-            fontName="Helvetica",
-            fontSize=8.5,
-            leading=10,
-            alignment=TA_RIGHT,
-            textColor=NEGATIVE_RED,
-        ),
-        "negative_bold": ParagraphStyle(
-            "GhostTownNegativeBold",
-            parent=styles["Normal"],
-            fontName="Helvetica-Bold",
-            fontSize=9,
-            leading=11,
-            alignment=TA_RIGHT,
-            textColor=NEGATIVE_RED,
-        ),
     }
 
 
-class NumberedCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._savedPageStates = []
-        self._printedAt = datetime.now()
-
-    def showPage(self):
-        self._savedPageStates.append(dict(self.__dict__))
-        self._startPage()
-
-    def save(self):
-        pageCount = len(self._savedPageStates)
-        for state in self._savedPageStates:
-            self.__dict__.update(state)
-            self.drawFooter(pageCount)
-            super().showPage()
-        super().save()
-
-    def drawFooter(self, pageCount):
-        self.saveState()
-        self.setFillColor(colors.black)
-        self.setFont("Helvetica", 7.5)
-        self.drawString(
-            18 * mm,
-            11 * mm,
-            f"Seite {self._pageNumber} von {pageCount}",
-        )
-        self.drawRightString(
-            PAGE_WIDTH - (18 * mm),
-            11 * mm,
-            f"Druckdatum: {self._printedAt.strftime('%d.%m.%Y %H:%M')}",
-        )
-        self.restoreState()
-
-
-def drawFourPointStar(pdfCanvas, centerX, centerY, size=5):
-    path = pdfCanvas.beginPath()
-    path.moveTo(centerX, centerY + size)
-    path.lineTo(centerX + size * 0.28, centerY + size * 0.28)
-    path.lineTo(centerX + size, centerY)
-    path.lineTo(centerX + size * 0.28, centerY - size * 0.28)
-    path.lineTo(centerX, centerY - size)
-    path.lineTo(centerX - size * 0.28, centerY - size * 0.28)
-    path.lineTo(centerX - size, centerY)
-    path.lineTo(centerX - size * 0.28, centerY + size * 0.28)
-    path.close()
-    pdfCanvas.drawPath(path, fill=1, stroke=0)
-
-
-def drawBrandHeader(pdfCanvas, document):
-    pdfCanvas.saveState()
-    title = "Ghost Town"
-    titleY = PAGE_HEIGHT - (18 * mm)
-    pdfCanvas.setFillColor(colors.black)
-    pdfCanvas.setFont("Times-Bold", 24)
-    pdfCanvas.drawCentredString(PAGE_WIDTH / 2, titleY, title)
-
-    titleWidth = pdfCanvas.stringWidth(title, "Times-Bold", 24)
-    starOffset = (titleWidth / 2) + (10 * mm)
-    starY = titleY + 7
-    drawFourPointStar(pdfCanvas, (PAGE_WIDTH / 2) - starOffset, starY, 6)
-    drawFourPointStar(pdfCanvas, (PAGE_WIDTH / 2) + starOffset, starY, 6)
-
-    vehicle = document.vehicle
-    vehicleY = PAGE_HEIGHT - (29 * mm)
-    pdfCanvas.setFont("Helvetica-Bold", 11)
-    pdfCanvas.drawString(
-        18 * mm,
-        vehicleY,
-        vehicle.displayName or "Unbenanntes Fahrzeug",
-    )
-    pdfCanvas.setFont("Helvetica-Bold", 9)
-    pdfCanvas.drawRightString(
-        PAGE_WIDTH - (18 * mm),
-        vehicleY,
-        vehicle.vin or "Keine FIN/VIN",
-    )
-    pdfCanvas.restoreState()
-
-
-def createDocument(buffer, title, vehicle):
+def createDocument(buffer, title, vehicle, documentKind, documentHeading):
     document = SimpleDocTemplate(
         buffer,
         pagesize=A4,
@@ -247,11 +148,34 @@ def createDocument(buffer, title, vehicle):
         author="Ghost Town",
         leftMargin=18 * mm,
         rightMargin=18 * mm,
-        topMargin=39 * mm,
-        bottomMargin=20 * mm,
+        topMargin=25 * mm,
+        bottomMargin=25 * mm,
     )
     document.vehicle = vehicle
+    document.documentKind = documentKind
+    document.documentHeading = documentHeading or ""
     return document
+
+
+def fitWidths(fractions):
+    """Turn width fractions into column widths that fit the frame."""
+    return [TABLE_WIDTH * fraction for fraction in fractions]
+
+
+def plainTableStyle(headerRow=0, lastRow=None):
+    """Invoice look: no fills, black rules around the header row."""
+    commands = [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+        ("LINEABOVE", (0, headerRow), (-1, headerRow), 0.75, colors.black),
+        ("LINEBELOW", (0, headerRow), (-1, headerRow), 0.75, colors.black),
+    ]
+    if lastRow is not None:
+        commands.append(("LINEBELOW", (0, lastRow), (-1, lastRow), 0.75, colors.black))
+    return commands
 
 
 def safeText(value, fallback="–"):
@@ -269,33 +193,19 @@ def orderBanner(order, styles):
         ]
     ]
     if order.description:
-        data.append(
-            [
-                Paragraph(safeText(order.description), styles["body"]),
-                "",
-            ]
-        )
+        data.append([Paragraph(safeText(order.description), styles["body"]), ""])
 
-    table = Table(
-        data,
-        colWidths=[CONTENT_WIDTH * 0.72, CONTENT_WIDTH * 0.28],
-    )
+    table = Table(data, colWidths=fitWidths([0.72, 0.28]), hAlign="LEFT")
     tableStyle = [
-        ("BACKGROUND", (0, 0), (-1, 0), TABLE_GRAY),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, 0), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.75, colors.black),
     ]
     if len(data) > 1:
-        tableStyle.extend(
-            [
-                ("SPAN", (0, 1), (-1, 1)),
-                ("TOPPADDING", (0, 1), (-1, 1), 5),
-                ("BOTTOMPADDING", (0, 1), (-1, 1), 5),
-            ]
-        )
+        tableStyle.append(("SPAN", (0, 1), (-1, 1)))
     table.setStyle(TableStyle(tableStyle))
     return table
 
@@ -310,11 +220,10 @@ def detailCell(description, date, styles):
 
 def amountCell(value, styles, forceNegative=False, bold=False):
     displayValue = -abs(value or 0) if forceNegative else (value or 0)
-    if displayValue < 0:
-        style = styles["negative_bold"] if bold else styles["negative"]
-    else:
-        style = styles["bold_right"] if bold else styles["body_right"]
-    return Paragraph(formatCurrency(displayValue), style)
+    return Paragraph(
+        formatCurrency(displayValue),
+        styles["bold_right"] if bold else styles["body_right"],
+    )
 
 
 def hoursCell(value, styles, bold=False):
@@ -360,12 +269,17 @@ def orderTotals(order):
     return totalCost, totalIncome, totalHours, totalIncome - totalCost
 
 
-def sectionTable(title, headers, rows, widths, styles, emptyText):
+def sectionTable(title, headers, rows, fractions, styles, emptyText, rightColumns=()):
     columnCount = len(headers)
     data = [
-        [Paragraph(safeText(title), styles["section"])]
-        + [""] * (columnCount - 1),
-        [Paragraph(safeText(header), styles["bold"]) for header in headers],
+        [Paragraph(safeText(title), styles["section"])] + [""] * (columnCount - 1),
+        [
+            Paragraph(
+                safeText(header, "&nbsp;"),
+                styles["body_right" if column in rightColumns else "body"],
+            )
+            for column, header in enumerate(headers)
+        ],
     ]
     if rows:
         data.extend(rows)
@@ -375,40 +289,17 @@ def sectionTable(title, headers, rows, widths, styles, emptyText):
             + [""] * (columnCount - 1)
         )
 
-    table = Table(
-        data,
-        colWidths=widths,
-        repeatRows=2,
-        hAlign="LEFT",
+    table = Table(data, colWidths=fitWidths(fractions), repeatRows=2, hAlign="LEFT")
+    tableStyle = plainTableStyle(headerRow=1, lastRow=len(data) - 1)
+    tableStyle.extend(
+        [
+            ("SPAN", (0, 0), (-1, 0)),
+            ("TOPPADDING", (0, 0), (-1, 0), 4),
+            ("VALIGN", (0, 2), (-1, -1), "TOP"),
+        ]
     )
-    tableStyle = [
-        ("SPAN", (0, 0), (-1, 0)),
-        ("BACKGROUND", (0, 1), (-1, 1), TABLE_GRAY),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, 0), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
-        ("TOPPADDING", (0, 1), (-1, 1), 4),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), 4),
-        ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
-    ]
-
-    for rowIndex in range(2, len(data)):
-        if (rowIndex - 2) % 2 == 0:
-            tableStyle.append(
-                ("BACKGROUND", (0, rowIndex), (-1, rowIndex), TABLE_GRAY)
-            )
-        tableStyle.extend(
-            [
-                ("TOPPADDING", (0, rowIndex), (-1, rowIndex), 2.5),
-                ("BOTTOMPADDING", (0, rowIndex), (-1, rowIndex), 2.5),
-            ]
-        )
-
     if not rows:
         tableStyle.append(("SPAN", (0, 2), (-1, 2)))
-
     table.setStyle(TableStyle(tableStyle))
     return table
 
@@ -430,15 +321,16 @@ def costTable(costs, styles):
         ["Beschreibung", "Person", "Menge", "EK", "VK", "Preis"],
         rows,
         [
-            CONTENT_WIDTH * 0.32,
-            CONTENT_WIDTH * 0.18,
-            CONTENT_WIDTH * 0.10,
-            CONTENT_WIDTH * 0.13,
-            CONTENT_WIDTH * 0.13,
-            CONTENT_WIDTH * 0.14,
+            0.32,
+            0.18,
+            0.10,
+            0.13,
+            0.13,
+            0.14,
         ],
         styles,
         "Keine Positionen erfasst",
+        rightColumns=(2, 3, 4, 5),
     )
 
 
@@ -455,9 +347,10 @@ def timeTable(times, styles):
         "Arbeitszeiten",
         ["Beschreibung", "Person", "Stunden"],
         rows,
-        [CONTENT_WIDTH * 0.57, CONTENT_WIDTH * 0.23, CONTENT_WIDTH * 0.20],
+        [0.57, 0.23, 0.20],
         styles,
         "Keine Arbeitszeiten erfasst",
+        rightColumns=(2,),
     )
 
 
@@ -474,9 +367,10 @@ def incomeTable(incomes, styles):
         "Einnahmen",
         ["Beschreibung", "Person", "Betrag"],
         rows,
-        [CONTENT_WIDTH * 0.57, CONTENT_WIDTH * 0.23, CONTENT_WIDTH * 0.20],
+        [0.57, 0.23, 0.20],
         styles,
         "Keine Einnahmen erfasst",
+        rightColumns=(2,),
     )
 
 
@@ -506,63 +400,36 @@ def attachedVehicleTable(vehicles, styles):
         ["Fahrzeug", "FIN/VIN", "EK", "Einnahmen", "Stunden", "Ergebnis"],
         rows,
         [
-            CONTENT_WIDTH * 0.25,
-            CONTENT_WIDTH * 0.20,
-            CONTENT_WIDTH * 0.13,
-            CONTENT_WIDTH * 0.17,
-            CONTENT_WIDTH * 0.11,
-            CONTENT_WIDTH * 0.14,
+            0.25,
+            0.20,
+            0.13,
+            0.17,
+            0.11,
+            0.14,
         ],
         styles,
         "Keine Fahrzeuge angehängt",
+        rightColumns=(2, 3, 4, 5),
     )
 
 
 def summaryTable(totalCost, totalIncome, totalHours, result, styles, title):
     data = [
-        [
-            Paragraph(safeText(title), styles["section"]),
-            "",
-        ],
-        [
-            Paragraph("EK", styles["body"]),
-            amountCell(totalCost, styles, forceNegative=True),
-        ],
-        [
-            Paragraph("Einnahmen", styles["body"]),
-            amountCell(totalIncome, styles),
-        ],
-        [
-            Paragraph("Ergebnis", styles["bold"]),
-            amountCell(result, styles, bold=True),
-        ],
-        [
-            Paragraph("Arbeitszeit", styles["bold"]),
-            hoursCell(totalHours, styles, bold=True),
-        ],
+        [Paragraph(safeText(title), styles["section"]), ""],
+        [Paragraph("EK", styles["body"]), amountCell(totalCost, styles, forceNegative=True)],
+        [Paragraph("Einnahmen", styles["body"]), amountCell(totalIncome, styles)],
+        [Paragraph("Ergebnis", styles["bold"]), amountCell(result, styles, bold=True)],
+        [Paragraph("Arbeitszeit", styles["bold"]), hoursCell(totalHours, styles, bold=True)],
     ]
-    table = Table(
-        data,
-        colWidths=[CONTENT_WIDTH * 0.75, CONTENT_WIDTH * 0.25],
+    table = Table(data, colWidths=fitWidths([0.75, 0.25]), hAlign="LEFT")
+    tableStyle = plainTableStyle(headerRow=0, lastRow=len(data) - 1)
+    tableStyle.extend(
+        [
+            ("SPAN", (0, 0), (-1, 0)),
+            ("TOPPADDING", (0, 0), (-1, 0), 4),
+        ]
     )
-    table.setStyle(
-        TableStyle(
-            [
-                ("SPAN", (0, 0), (-1, 0)),
-                ("BACKGROUND", (0, 1), (-1, 1), TABLE_GRAY),
-                ("BACKGROUND", (0, 3), (-1, 3), TABLE_GRAY),
-                ("BACKGROUND", (0, 4), (-1, 4), TABLE_GRAY),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 3),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                ("TOPPADDING", (0, 0), (-1, 0), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
-                ("TOPPADDING", (0, 1), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 1), (-1, -1), 4),
-            ]
-        )
-    )
+    table.setStyle(TableStyle(tableStyle))
     return table
 
 
@@ -573,6 +440,8 @@ def buildOrderPdf(order, totals):
         buffer,
         f"Auftrag {order.title}",
         order.vehicle,
+        "Auftrag",
+        order.title,
     )
     totalCost, totalIncome, totalHours, result = totals
 
@@ -607,9 +476,8 @@ def buildOrderPdf(order, totals):
     )
     document.build(
         elements,
-        onFirstPage=drawBrandHeader,
-        onLaterPages=drawBrandHeader,
-        canvasmaker=NumberedCanvas,
+        onFirstPage=drawDocumentPage,
+        onLaterPages=drawDocumentPage,
     )
     buffer.seek(0)
     return buffer
@@ -735,10 +603,10 @@ def invoiceTable(rows, total, styles):
     table = Table(
         data,
         colWidths=[
-            (CONTENT_WIDTH - 12) * 0.55,
-            (CONTENT_WIDTH - 12) * 0.15,
-            (CONTENT_WIDTH - 12) * 0.15,
-            (CONTENT_WIDTH - 12) * 0.15,
+            TABLE_WIDTH * 0.55,
+            TABLE_WIDTH * 0.15,
+            TABLE_WIDTH * 0.15,
+            TABLE_WIDTH * 0.15,
         ],
         repeatRows=1,
         hAlign="LEFT",
@@ -762,14 +630,14 @@ def invoiceTable(rows, total, styles):
     return table
 
 
-def drawInvoicePage(pdfCanvas, document):
+def drawDocumentPage(pdfCanvas, document):
     pdfCanvas.saveState()
-    left = (18 * mm) + 6  # matches the default 6 pt frame padding
-    right = PAGE_WIDTH - (18 * mm) - 6
+    left = (18 * mm) + FRAME_PADDING
+    right = PAGE_WIDTH - (18 * mm) - FRAME_PADDING
     titleY = PAGE_HEIGHT - (20 * mm)
     pdfCanvas.setFont("Helvetica-Bold", 11)
-    pdfCanvas.drawString(left, titleY, "Rechnung")
-    pdfCanvas.drawRightString(right, titleY, document.invoiceTitle)
+    pdfCanvas.drawString(left, titleY, document.documentKind)
+    pdfCanvas.drawRightString(right, titleY, document.documentHeading)
 
     footerY = 15 * mm
     pdfCanvas.setFont("Helvetica", 9)
@@ -793,7 +661,8 @@ def buildInvoicePdf(order, costs, workers, discounts=()):
         bottomMargin=25 * mm,
     )
     document.vehicle = order.vehicle
-    document.invoiceTitle = order.title or ""
+    document.documentKind = "Rechnung"
+    document.documentHeading = order.title or ""
 
     subtotal = sum(item.price for item in costs) + sum(
         total for _, _, total in workers
@@ -811,8 +680,8 @@ def buildInvoicePdf(order, costs, workers, discounts=()):
     rows = invoiceRows(costs, workers, discountRows, roundingCents)
     document.build(
         [invoiceTable(rows, totalCents / 100, styles)],
-        onFirstPage=drawInvoicePage,
-        onLaterPages=drawInvoicePage,
+        onFirstPage=drawDocumentPage,
+        onLaterPages=drawDocumentPage,
     )
     buffer.seek(0)
     return buffer
@@ -825,6 +694,8 @@ def buildVehiclePdf(vehicle, totals):
         buffer,
         f"Fahrzeug {vehicle.displayName}",
         vehicle,
+        "Fahrzeug",
+        vehicle.licensePlate,
     )
     totalCost, totalIncome, totalHours, result = totals
 
@@ -842,9 +713,9 @@ def buildVehiclePdf(vehicle, totals):
                 ["Beschreibung", "Status", "Datum"],
                 [],
                 [
-                    CONTENT_WIDTH * 0.57,
-                    CONTENT_WIDTH * 0.20,
-                    CONTENT_WIDTH * 0.23,
+                    0.57,
+                    0.20,
+                    0.23,
                 ],
                 styles,
                 "Keine Aufträge vorhanden",
@@ -903,9 +774,8 @@ def buildVehiclePdf(vehicle, totals):
     )
     document.build(
         elements,
-        onFirstPage=drawBrandHeader,
-        onLaterPages=drawBrandHeader,
-        canvasmaker=NumberedCanvas,
+        onFirstPage=drawDocumentPage,
+        onLaterPages=drawDocumentPage,
     )
     buffer.seek(0)
     return buffer
@@ -973,11 +843,11 @@ def servicePlanIntervalTable(intervals, styles):
         ["OK", "Arbeit", "Intervall", "Zuletzt", "Fällig"],
         rows,
         [
-            CONTENT_WIDTH * 0.06,
-            CONTENT_WIDTH * 0.37,
-            CONTENT_WIDTH * 0.19,
-            CONTENT_WIDTH * 0.19,
-            CONTENT_WIDTH * 0.19,
+            0.06,
+            0.30,
+            0.24,
+            0.20,
+            0.20,
         ],
         styles,
         "Keine Intervalle ausgewählt",
@@ -996,7 +866,7 @@ def servicePlanTaskTable(title, tasks, styles):
         title,
         ["OK", "Arbeit"],
         rows,
-        [CONTENT_WIDTH * 0.06, CONTENT_WIDTH * 0.94],
+        [0.06, 0.94],
         styles,
         "",
     )
@@ -1007,7 +877,7 @@ def servicePlanSignatureTable(styles):
     data = [[Paragraph(label, styles["small"]) for label in labels]]
     table = Table(
         data,
-        colWidths=[CONTENT_WIDTH / 3] * 3,
+        colWidths=[TABLE_WIDTH / 3] * 3,
         rowHeights=[16 * mm],
         hAlign="LEFT",
     )
@@ -1029,7 +899,13 @@ def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None):
     """intervals: interval overview dicts, taskGroups: [(title, [task])]."""
     styles = pdfStyles()
     buffer = io.BytesIO()
-    document = createDocument(buffer, f"Serviceplan {vehicle.displayName}", vehicle)
+    document = createDocument(
+        buffer,
+        f"Serviceplan {vehicle.displayName}",
+        vehicle,
+        "Serviceplan",
+        vehicle.licensePlate,
+    )
 
     mileageText = (
         f"Letzter bekannter Kilometerstand: {formatKilometers(currentMileage)}"
@@ -1037,7 +913,6 @@ def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None):
         else "Kein Kilometerstand erfasst"
     )
     elements = [
-        Paragraph("Serviceplan", styles["order_title"]),
         Paragraph(
             f"Erstellt am {datetime.now().strftime('%d.%m.%Y')} · {mileageText}",
             styles["small"],
@@ -1052,9 +927,8 @@ def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None):
 
     document.build(
         elements,
-        onFirstPage=drawBrandHeader,
-        onLaterPages=drawBrandHeader,
-        canvasmaker=NumberedCanvas,
+        onFirstPage=drawDocumentPage,
+        onLaterPages=drawDocumentPage,
     )
     buffer.seek(0)
     return buffer

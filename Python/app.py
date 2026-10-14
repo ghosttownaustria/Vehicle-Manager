@@ -517,6 +517,17 @@ def buildServiceIntervalOverview(vehicleItem, historyEntries, includeInspection=
     return overview
 
 
+def isServiceIntervalDue(item, currentMileage, today):
+    """An interval counts as due when never done or when a due point is reached."""
+    if item["lastEntry"] is None:
+        return True
+    return (
+        (item["dueMileage"] is not None and currentMileage is not None
+         and currentMileage >= item["dueMileage"])
+        or (item["dueDate"] is not None and today >= item["dueDate"])
+    )
+
+
 class FuelEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     vehicle_id = db.Column(
@@ -2234,6 +2245,9 @@ def servicePlan(vehicleId):
         + [entry.mileage for entry in vehicleItem.fuelEntries if entry.mileage is not None],
         default=None,
     )
+
+    for item in intervals:
+        item["isDue"] = isServiceIntervalDue(item, currentMileage, date.today())
 
     if request.method == "POST":
         selectedWorks = set(request.form.getlist("interval"))

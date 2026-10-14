@@ -91,6 +91,19 @@ class ServicePlanTests(InvoiceTests):
         self.assertIn("Ölwechsel".encode(), response.data)
         self.assertIn("Fahrzeugcheck".encode(), response.data)
 
+    def test_only_due_intervals_are_preselected(self):
+        from datetime import date
+
+        from app import isServiceIntervalDue
+
+        entry = type("Entry", (), {})()
+        item = {"lastEntry": entry, "dueMileage": 20000, "dueDate": date(2030, 1, 1)}
+        today = date(2026, 1, 1)
+        self.assertFalse(isServiceIntervalDue(item, 15000, today))
+        self.assertTrue(isServiceIntervalDue(item, 20000, today))
+        self.assertTrue(isServiceIntervalDue(item, 100, date(2030, 1, 1)))
+        self.assertTrue(isServiceIntervalDue({**item, "lastEntry": None}, 0, today))
+
     def test_service_plan_pdf_is_generated(self):
         from app import ServiceInterval
 

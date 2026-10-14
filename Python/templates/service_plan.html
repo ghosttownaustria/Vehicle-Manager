@@ -53,7 +53,7 @@
                 <tbody>
                 {% for item in intervals %}
                     <tr>
-                        <td><input type="checkbox" class="pick-box" name="interval" value="{{ item.work }}" data-group="interval" checked aria-label="{{ item.label }} übernehmen"></td>
+                        <td><input type="checkbox" class="pick-box" name="interval" value="{{ item.work }}" data-group="interval"{% if item.isDue %} checked{% endif %} aria-label="{{ item.label }} übernehmen"></td>
                         <td>{{ item.label }}</td>
                         <td>{% if item.kilometers %}{{ item.kilometers }} km{% endif %}{% if item.kilometers and item.months %} / {% endif %}{% if item.months %}{{ item.months }} Monate{% endif %}</td>
                         <td>{% if item.lastEntry %}{{ item.lastEntry.date.strftime('%d.%m.%Y') }} · {{ item.lastEntry.mileage }} km{% else %}–{% endif %}</td>

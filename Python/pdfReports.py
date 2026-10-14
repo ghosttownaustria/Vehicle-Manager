@@ -9,6 +9,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
+    Flowable,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -900,6 +901,155 @@ def buildVehiclePdf(vehicle, totals):
             "Gesamtsumme Fahrzeug",
         )
     )
+    document.build(
+        elements,
+        onFirstPage=drawBrandHeader,
+        onLaterPages=drawBrandHeader,
+        canvasmaker=NumberedCanvas,
+    )
+    buffer.seek(0)
+    return buffer
+
+
+class CheckBox(Flowable):
+    """Empty square that can be ticked by hand."""
+
+    SIZE = 3.4 * mm
+
+    def wrap(self, availableWidth, availableHeight):
+        return self.SIZE, self.SIZE
+
+    def draw(self):
+        self.canv.setLineWidth(0.7)
+        self.canv.rect(0, 0, self.SIZE, self.SIZE)
+
+
+def formatKilometers(value):
+    return f"{value:,}".replace(",", ".") + " km"
+
+
+def formatDateOnly(value):
+    return value.strftime("%d.%m.%Y") if value else "–"
+
+
+def servicePlanIntervalText(item):
+    parts = []
+    if item["kilometers"]:
+        parts.append(formatKilometers(item["kilometers"]))
+    if item["months"]:
+        parts.append(f"{item['months']} Monate")
+    return " / ".join(parts)
+
+
+def servicePlanLastText(item):
+    lastEntry = item["lastEntry"]
+    if lastEntry is None:
+        return "–"
+    return f"{formatDateOnly(lastEntry.date)}<br/>{formatKilometers(lastEntry.mileage)}"
+
+
+def servicePlanDueText(item):
+    parts = []
+    if item["dueMileage"]:
+        parts.append(formatKilometers(item["dueMileage"]))
+    if item["dueDate"]:
+        parts.append(formatDateOnly(item["dueDate"]))
+    return "<br/>".join(parts) if parts else "–"
+
+
+def servicePlanIntervalTable(intervals, styles):
+    rows = [
+        [
+            CheckBox(),
+            Paragraph(safeText(item["label"]), styles["body"]),
+            Paragraph(servicePlanIntervalText(item), styles["body"]),
+            Paragraph(servicePlanLastText(item), styles["body"]),
+            Paragraph(servicePlanDueText(item), styles["body"]),
+        ]
+        for item in intervals
+    ]
+    return sectionTable(
+        "Wartung nach Intervall",
+        ["OK", "Arbeit", "Intervall", "Zuletzt", "Fällig"],
+        rows,
+        [
+            CONTENT_WIDTH * 0.06,
+            CONTENT_WIDTH * 0.37,
+            CONTENT_WIDTH * 0.19,
+            CONTENT_WIDTH * 0.19,
+            CONTENT_WIDTH * 0.19,
+        ],
+        styles,
+        "Keine Intervalle ausgewählt",
+    )
+
+
+def servicePlanTaskTable(title, tasks, styles):
+    rows = [
+        [
+            CheckBox(),
+            Paragraph(safeText(task), styles["body"]),
+        ]
+        for task in tasks
+    ]
+    return sectionTable(
+        title,
+        ["OK", "Arbeit"],
+        rows,
+        [CONTENT_WIDTH * 0.06, CONTENT_WIDTH * 0.94],
+        styles,
+        "",
+    )
+
+
+def servicePlanSignatureTable(styles):
+    labels = ["Datum", "Kilometerstand", "Unterschrift"]
+    data = [[Paragraph(label, styles["small"]) for label in labels]]
+    table = Table(
+        data,
+        colWidths=[CONTENT_WIDTH / 3] * 3,
+        rowHeights=[16 * mm],
+        hAlign="LEFT",
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                ("LINEBELOW", (0, 0), (0, 0), 0.5, colors.black),
+                ("LINEBELOW", (1, 0), (1, 0), 0.5, colors.black),
+                ("LINEBELOW", (2, 0), (2, 0), 0.5, colors.black),
+                ("RIGHTPADDING", (0, 0), (-2, 0), 8 * mm),
+            ]
+        )
+    )
+    return table
+
+
+def buildServicePlanPdf(vehicle, intervals, taskGroups, currentMileage=None):
+    """intervals: interval overview dicts, taskGroups: [(title, [task])]."""
+    styles = pdfStyles()
+    buffer = io.BytesIO()
+    document = createDocument(buffer, f"Serviceplan {vehicle.displayName}", vehicle)
+
+    mileageText = (
+        f"Letzter bekannter Kilometerstand: {formatKilometers(currentMileage)}"
+        if currentMileage is not None
+        else "Kein Kilometerstand erfasst"
+    )
+    elements = [
+        Paragraph("Serviceplan", styles["order_title"]),
+        Paragraph(
+            f"Erstellt am {datetime.now().strftime('%d.%m.%Y')} · {mileageText}",
+            styles["small"],
+        ),
+        Spacer(1, 4 * mm),
+    ]
+    if intervals:
+        elements.extend([servicePlanIntervalTable(intervals, styles), Spacer(1, 5 * mm)])
+    for title, tasks in taskGroups:
+        elements.extend([servicePlanTaskTable(title, tasks, styles), Spacer(1, 5 * mm)])
+    elements.append(servicePlanSignatureTable(styles))
+
     document.build(
         elements,
         onFirstPage=drawBrandHeader,

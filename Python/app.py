@@ -20,7 +20,17 @@ from brandLogos import brandLogoUrl
 from historyProjection import projectMileage
 from inspectionSchedule import buildInspectionStatus
 from fuelStatistics import buildFuelStatistics
-from pdfReports import buildInvoicePdf, buildOrderPdf, buildVehiclePdf
+from pdfReports import (
+    buildInvoicePdf,
+    buildOrderPdf,
+    buildServicePlanPdf,
+    buildVehiclePdf,
+)
+from servicePlanTasks import (
+    SERVICE_PLAN_CHECK_GROUPS,
+    resolveServicePlanTasks,
+    servicePlanTaskKey,
+)
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import selectinload
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -480,16 +490,17 @@ def addMonths(startDate, months):
     return date(year, month, day)
 
 
-def buildServiceIntervalOverview(vehicleItem, historyEntries):
+def buildServiceIntervalOverview(vehicleItem, historyEntries, includeInspection=False):
     """List each configured interval with the last service and the next due point."""
     stored = {item.work: item for item in vehicleItem.serviceIntervals}
     overview = []
     for work, label in STANDARD_WORK_OPTIONS:
         interval = stored.get(work)
-        if interval is None or work == INSPECTION_WORK:
+        if interval is None or (work == INSPECTION_WORK and not includeInspection):
             continue
         lastEntry = next((entry for entry in historyEntries if work in entry.works), None)
         overview.append({
+            "work": work,
             "label": label,
             "kilometers": interval.kilometers,
             "months": interval.months,
@@ -2200,6 +2211,60 @@ def invoiceOrder(orderId):
         times=times,
         loggedHours=loggedHours,
         workerGroups=groupHoursByPerson(times) or [("", 0)],
+    )
+
+
+@app.route("/vehicle/<int:vehicleId>/serviceplan", methods=["GET", "POST"])
+@loginRequired
+def servicePlan(vehicleId):
+    vehicleItem = Vehicle.query.get_or_404(vehicleId)
+    if not canModifyVehicleData() or not canAccessVehicle(vehicleItem):
+        return accessDeniedRedirect()
+
+    historyEntries = (
+        ServiceHistoryEntry.query.filter_by(vehicle_id=vehicleId)
+        .order_by(ServiceHistoryEntry.date.desc(), ServiceHistoryEntry.id.desc())
+        .all()
+    )
+    intervals = buildServiceIntervalOverview(
+        vehicleItem, historyEntries, includeInspection=True
+    )
+    currentMileage = max(
+        [entry.mileage for entry in historyEntries]
+        + [entry.mileage for entry in vehicleItem.fuelEntries if entry.mileage is not None],
+        default=None,
+    )
+
+    if request.method == "POST":
+        selectedWorks = set(request.form.getlist("interval"))
+        taskGroups = resolveServicePlanTasks(request.form.getlist("task"))
+        extraTasks = [
+            line.strip()[:200]
+            for line in request.form.get("extraTasks", "").splitlines()
+            if line.strip()
+        ][:30]
+        if extraTasks:
+            taskGroups.append(("Zusätzliche Arbeiten", extraTasks))
+        buffer = buildServicePlanPdf(
+            vehicleItem,
+            [item for item in intervals if item["work"] in selectedWorks],
+            taskGroups,
+            currentMileage,
+        )
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"serviceplan_{vehicleItem.id}.pdf",
+            mimetype="application/pdf",
+        )
+
+    return render_template(
+        "service_plan.html",
+        vehicle=vehicleItem,
+        intervals=intervals,
+        checkGroups=SERVICE_PLAN_CHECK_GROUPS,
+        taskKey=servicePlanTaskKey,
+        currentMileage=currentMileage,
     )
 
 

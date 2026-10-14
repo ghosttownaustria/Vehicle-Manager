@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Serviceplan drucken · Vehicle Manager{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='service_plan.js') }}" defer></script>
+<style>
+    .pick-box {
+        appearance: none;
+        -webkit-appearance: none;
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        margin: 0;
+        vertical-align: middle;
+        border: 2px solid var(--muted);
+        border-radius: 6px;
+        background: var(--field-bg);
+        cursor: pointer;
+        position: relative;
+        transition: background .12s, border-color .12s;
+    }
+    .pick-box:hover { border-color: var(--primary); }
+    .pick-box:checked { background: var(--primary); border-color: var(--primary); }
+    .pick-box:checked::after {
+        content: "";
+        position: absolute;
+        left: 6px;
+        top: 2px;
+        width: 6px;
+        height: 11px;
+        border: solid #ffffff;
+        border-width: 0 2.5px 2.5px 0;
+        transform: rotate(45deg);
+    }
+    .pick-box:focus-visible { outline: 3px solid var(--accent-soft-border); outline-offset: 2px; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Serviceplan drucken</h1>
+        <p>{{ vehicleName(vehicle) }}{% if currentMileage is not none %} · Letzter Kilometerstand: {{ currentMileage }} km{% endif %}</p>
+    </div>
+</div>
+
+<form method="post" id="service-plan-form">
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header">
+            <h2>Wartung nach Intervall</h2>
+            <button class="btn btn-secondary btn-sm" type="button" data-toggle-group="interval">Alle an/aus</button>
+        </div>
+        {% if intervals %}
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th></th><th>Arbeit</th><th>Intervall</th><th>Zuletzt</th><th>Fällig</th></tr></thead>
+                <tbody>
+                {% for item in intervals %}
+                    <tr>
+                        <td><input type="checkbox" class="pick-box" name="interval" value="{{ item.work }}" data-group="interval" checked aria-label="{{ item.label }} übernehmen"></td>
+                        <td>{{ item.label }}</td>
+                        <td>{% if item.kilometers %}{{ item.kilometers }} km{% endif %}{% if item.kilometers and item.months %} / {% endif %}{% if item.months %}{{ item.months }} Monate{% endif %}</td>
+                        <td>{% if item.lastEntry %}{{ item.lastEntry.date.strftime('%d.%m.%Y') }} · {{ item.lastEntry.mileage }} km{% else %}–{% endif %}</td>
+                        <td>{% if item.dueMileage %}{{ item.dueMileage }} km{% endif %}{% if item.dueMileage and item.dueDate %} / {% endif %}{% if item.dueDate %}{{ item.dueDate.strftime('%d.%m.%Y') }}{% endif %}{% if not item.dueMileage and not item.dueDate %}–{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<div class="empty">Für dieses Fahrzeug sind noch keine Service-Intervalle hinterlegt. Sie lassen sich beim Bearbeiten des Fahrzeugs eintragen.</div>{% endif %}
+    </section>
+
+    {% for groupKey, groupTitle, tasks in checkGroups %}
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header">
+            <h2>{{ groupTitle }}</h2>
+            <button class="btn btn-secondary btn-sm" type="button" data-toggle-group="{{ groupKey }}">Alle an/aus</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <tbody>
+                {% for task in tasks %}
+                    <tr>
+                        <td style="width: 40px"><input type="checkbox" class="pick-box" name="task" value="{{ taskKey(groupKey, loop.index0) }}" data-group="{{ groupKey }}"{% if groupKey == 'vehicle_check' %} checked{% endif %} aria-label="{{ task }} übernehmen"></td>
+                        <td>{{ task }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endfor %}
+
+    <section class="card" style="margin-bottom: 22px">
+        <div class="card-header"><h2>Zusätzliche Arbeiten</h2></div>
+        <div class="field">
+            <label for="extraTasks">Eine Arbeit pro Zeile</label>
+            <textarea id="extraTasks" name="extraTasks" rows="4" maxlength="6000"></textarea>
+        </div>
+    </section>
+
+    <div class="actions">
+        <button class="btn btn-primary" type="submit">Serviceplan als PDF</button>
+        <a class="btn btn-secondary" href="{{ url_for('vehicle', vehicleId=vehicle.id) }}">Abbrechen</a>
+    </div>
+</form>
+{% endblock %}

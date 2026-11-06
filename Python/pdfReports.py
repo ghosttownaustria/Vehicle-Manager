@@ -487,18 +487,28 @@ def toCents(value):
     return int(round((value or 0) * 100))
 
 
-def calculateInvoiceDiscounts(subtotal, discounts):
+DISCOUNT_SCOPE_LABELS = {"parts": "Teile", "work": "Arbeitszeit"}
+
+
+def calculateInvoiceDiscounts(partsTotal, workTotal, discounts):
     """Return discount lines (description, cents) and the cent rounding in cents.
 
-    Each discount is (description, isPercent, value). Percentages refer to the
-    subtotal before any discount. The rounding always cuts the final total
-    down to a full ten cents.
+    Each discount is (description, isPercent, value, scope) with scope "all",
+    "parts" or "work". Percentages refer to the matching total before any
+    discount. The rounding always cuts the final total down to a full ten cents.
     """
-    subtotalCents = toCents(subtotal)
+    partsCents = toCents(partsTotal)
+    workCents = toCents(workTotal)
+    baseCents = {
+        "all": partsCents + workCents,
+        "parts": partsCents,
+        "work": workCents,
+    }
+    subtotalCents = baseCents["all"]
     lines = []
-    for description, isPercent, value in discounts:
+    for description, isPercent, value, scope in discounts:
         cents = (
-            int(round(subtotalCents * value / 100))
+            int(round(baseCents[scope] * value / 100))
             if isPercent
             else toCents(value)
         )
@@ -554,12 +564,13 @@ def invoiceRows(costs, workers, discounts, roundingCents):
         )
         rows.append(("gap", "", "", "", ""))
     deductionCents = 0
-    for description, isPercent, value, cents in discounts:
+    for description, isPercent, value, scope, cents in discounts:
         deductionCents += cents
+        scopeLabel = DISCOUNT_SCOPE_LABELS.get(scope)
         rows.append(
             (
                 "row",
-                description,
+                f"{description} ({scopeLabel})" if isPercent and scopeLabel else description,
                 f"{value:g} %".replace(".", ",") if isPercent else "",
                 "",
                 formatCurrency(-cents / 100),
@@ -664,13 +675,15 @@ def buildInvoicePdf(order, costs, workers, discounts=()):
     document.documentKind = "Rechnung"
     document.documentHeading = order.title or ""
 
-    subtotal = sum(item.price for item in costs) + sum(
-        total for _, _, total in workers
+    partsTotal = sum(item.price for item in costs)
+    workTotal = sum(total for _, _, total in workers)
+    subtotal = partsTotal + workTotal
+    discountLines, roundingCents = calculateInvoiceDiscounts(
+        partsTotal, workTotal, discounts
     )
-    discountLines, roundingCents = calculateInvoiceDiscounts(subtotal, discounts)
     discountRows = [
-        (description, isPercent, value, cents)
-        for (description, isPercent, value), (_, cents) in zip(
+        (description, isPercent, value, scope, cents)
+        for (description, isPercent, value, scope), (_, cents) in zip(
             discounts, discountLines
         )
     ]

@@ -32,6 +32,13 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
         const subtotalCents = Math.round(subtotal * 100);
+        let partsCents = 0;
+        costBoxes.forEach((box) => {
+            if (box.checked) {
+                partsCents += Math.round(parseFloat(box.dataset.price) * 100);
+            }
+        });
+        const baseCents = {all: subtotalCents, parts: partsCents, work: subtotalCents - partsCents};
         let totalCents = subtotalCents;
         incomeBoxes.forEach((box) => {
             if (box.checked && parseFloat(box.dataset.amount) > 0) {
@@ -41,7 +48,9 @@ document.addEventListener("DOMContentLoaded", () => {
         discountRows.querySelectorAll(".discount-row").forEach((row) => {
             const value = parse(row.querySelector("[name='discountValue']"));
             const isPercent = row.querySelector("[name='discountType']").value === "percent";
-            totalCents -= isPercent ? Math.round(subtotalCents * value / 100) : Math.round(value * 100);
+            const scopeSelect = row.querySelector("[name='discountScope']");
+            scopeSelect.hidden = !isPercent;
+            totalCents -= isPercent ? Math.round(baseCents[scopeSelect.value] * value / 100) : Math.round(value * 100);
         });
         const roundingCents = ((totalCents % 10) + 10) % 10;
         roundingLine.textContent = roundingCents ? "Centausgleich: -" + formatEuro(roundingCents) : "";
@@ -80,6 +89,21 @@ document.addEventListener("DOMContentLoaded", () => {
         rateInput.addEventListener("input", updateTotalFromRate);
         totalInput.addEventListener("input", updateRateFromTotal);
     });
+    const timeBoxes = form.querySelectorAll("input[data-hours]");
+    const syncWorkerHours = () => {
+        workerRows.forEach((row) => {
+            let hours = 0;
+            timeBoxes.forEach((box) => {
+                if (box.checked && box.dataset.person === row.dataset.person) {
+                    hours += parseFloat(box.dataset.hours);
+                }
+            });
+            const hoursInput = row.querySelector("[name='workerHours']");
+            hoursInput.value = round2(hours);
+            hoursInput.dispatchEvent(new Event("input"));
+        });
+    };
+    timeBoxes.forEach((box) => box.addEventListener("change", syncWorkerHours));
     costBoxes.forEach((box) => box.addEventListener("change", updateTotal));
     incomeBoxes.forEach((box) => box.addEventListener("change", updateTotal));
     updateTotal();

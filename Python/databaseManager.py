@@ -321,6 +321,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                         "date": (
                             workTime.date.isoformat() if workTime.date else None
                         ),
+                        "isBillable": workTime.isBillable,
                     }
                 )
 
@@ -614,6 +615,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                                 hours=float(timeData.get("hours", 0) or 0),
                                 person=timeData.get("person", ""),
                                 date=parseDate(timeData.get("date")),
+                                isBillable=bool(timeData.get("isBillable", True)),
                             )
                         )
                         entryCount += 1

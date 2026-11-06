@@ -66,18 +66,26 @@
     <section class="card" style="margin-bottom: 22px">
         <div class="card-header"><h2>Arbeitszeit</h2><strong>Erfasst: {{ loggedHours|currency }} h</strong></div>
         {% if times %}
-        <div class="list" style="margin-bottom: 16px">
-            {% for time in times %}
-            <div class="list-item">
-                <div class="list-title">{{ time.description }}</div>
-                <div class="list-meta">{{ time.date|dateTime }} · {{ time.person }} · {{ time.hours|currency }} h</div>
-            </div>
-            {% endfor %}
+        <div class="table-wrap" style="margin-bottom: 16px">
+            <table>
+                <thead><tr><th></th><th>Beschreibung</th><th>Datum</th><th>Person</th><th class="number">Stunden</th></tr></thead>
+                <tbody>
+                {% for time in times %}
+                    <tr>
+                        <td><input type="checkbox" class="pick-box" data-person="{{ (time.person or '')|trim }}" data-hours="{{ time.hours or 0 }}"{% if time.isBillable %} checked{% endif %} aria-label="Arbeitszeit übernehmen"></td>
+                        <td>{{ time.description }}</td>
+                        <td>{{ time.date|dateTime }}</td>
+                        <td>{{ time.person }}</td>
+                        <td class="number">{{ time.hours|currency }} h</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% endif %}
         <div id="worker-rows">
         {% for person, hours in workerGroups %}
-        <div class="grid worker-row" style="margin-bottom: 12px">
+        <div class="grid worker-row" data-person="{{ person }}" style="margin-bottom: 12px">
             <div class="field span-12">
                 <label>Bezeichnung auf der Rechnung: "Arbeitsstunden &hellip;"</label>
                 <input type="text" name="workerName" value="{{ person }}" placeholder="Name">
@@ -124,17 +132,24 @@
         <div class="card-header"><h2>Rabatte</h2></div>
         <div id="discount-rows"></div>
         <button class="btn btn-secondary btn-sm" type="button" id="add-discount">Rabatt hinzufügen</button>
-        <p class="hint">Prozent beziehen sich auf die Summe aus Positionen und Arbeitszeit. Der Centausgleich wird automatisch abgezogen, sodass der Rechnungsbetrag auf 10 Cent genau endet.</p>
+        <p class="hint">Prozent beziehen sich je nach Auswahl auf alles, nur die Teile oder nur die Arbeitszeit. Der Centausgleich wird automatisch abgezogen, sodass der Rechnungsbetrag auf 10 Cent genau endet.</p>
         <div class="list-meta" id="rounding-line"></div>
     </section>
 
     <template id="discount-template">
         <div class="grid discount-row" style="margin-bottom: 8px">
-            <div class="field span-5"><input type="text" name="discountDescription" placeholder="Beschreibung" aria-label="Beschreibung"></div>
+            <div class="field span-3"><input type="text" name="discountDescription" placeholder="Beschreibung" aria-label="Beschreibung"></div>
             <div class="field span-2">
                 <select name="discountType" aria-label="Art">
                     <option value="amount">€</option>
                     <option value="percent">%</option>
+                </select>
+            </div>
+            <div class="field span-2">
+                <select name="discountScope" aria-label="Gilt für" hidden>
+                    <option value="all">Alles</option>
+                    <option value="parts">Teile</option>
+                    <option value="work">Arbeitszeit</option>
                 </select>
             </div>
             <div class="field span-3"><input type="number" step="0.01" min="0" name="discountValue" placeholder="Wert" aria-label="Wert"></div>

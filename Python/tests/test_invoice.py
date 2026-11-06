@@ -47,6 +47,31 @@ class InvoiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b">EK<", response.data)
 
+    def test_non_billable_time_is_unchecked_on_invoice(self):
+        self.order.times.append(
+            WorkTime(description="Kulanz", hours=2, isBillable=False)
+        )
+        db.session.commit()
+        html = self.client.get(f"/order/{self.order.id}/invoice").get_data(as_text=True)
+        rows = [row for row in html.split("<tr>") if 'data-hours="' in row]
+        self.assertEqual(len(rows), 2)
+        self.assertIn(" checked", rows[0])
+        self.assertNotIn(" checked", rows[1])
+        self.assertIn('name="workerHours" value="1.5"', html)
+
+    def test_order_page_shows_actual_and_billable_hours(self):
+        self.order.times.append(
+            WorkTime(description="Kulanz", hours=2, isBillable=False)
+        )
+        db.session.commit()
+        html = self.client.get(f"/order/{self.order.id}").get_data(as_text=True)
+        self.assertIn("Arbeitszeit (tatsächlich)", html)
+        self.assertIn("Arbeitszeit (verrechnet)", html)
+        self.assertIn("3,50 h tatsächlich · 1,50 h verrechnet", html)
+
+    def test_new_work_time_is_billable_by_default(self):
+        self.assertTrue(self.order.times[0].isBillable)
+
     def test_invoice_pdf_is_generated(self):
         response = self.client.post(
             f"/order/{self.order.id}/invoice",
@@ -59,11 +84,19 @@ class InvoiceTests(unittest.TestCase):
         from pdfReports import calculateInvoiceDiscounts
 
         lines, rounding = calculateInvoiceDiscounts(
-            100, [("Stammkunde", True, 10), ("Kulanz", False, 2.66)]
+            40, 60, [("Stammkunde", True, 10, "all"), ("Kulanz", False, 2.66, "all")]
         )
         self.assertEqual(lines, [("Stammkunde", 1000), ("Kulanz", 266)])
         self.assertEqual(rounding, 4)
-        self.assertEqual(calculateInvoiceDiscounts(12.34, [])[1], 4)
+        self.assertEqual(calculateInvoiceDiscounts(12.34, 0, [])[1], 4)
+
+    def test_percent_discount_scope(self):
+        from pdfReports import calculateInvoiceDiscounts
+
+        lines, _ = calculateInvoiceDiscounts(
+            40, 60, [("T", True, 10, "parts"), ("A", True, 10, "work")]
+        )
+        self.assertEqual(lines, [("T", 400), ("A", 600)])
 
     def test_invoice_pdf_with_discounts(self):
         response = self.client.post(
@@ -71,7 +104,7 @@ class InvoiceTests(unittest.TestCase):
             data={
                 "cost_id": [str(self.order.costs[0].id)], "workerName": ["Max"], "workerHours": ["1.5"],
                 "workerTotal": ["90"], "discountDescription": ["A", "B"],
-                "discountType": ["percent", "amount"], "discountValue": ["5", "1,11"],
+                "discountType": ["percent", "amount"], "discountScope": ["parts", "all"], "discountValue": ["5", "1,11"],
             },
         )
         self.assertTrue(response.data.startswith(b"%PDF"))

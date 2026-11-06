@@ -179,8 +179,10 @@
         <div class="stat-value {{ 'positive' if result >= 0 else 'negative' }}">{{ result|currency }} €</div>
     </div>
     <div class="stat span-3">
-        <div class="stat-label">Arbeitszeit</div>
+        <div class="stat-label">Arbeitszeit (tatsächlich)</div>
         <div class="stat-value">{{ totalHours|currency }} h</div>
+        <div class="stat-label" style="margin-top: 8px">Arbeitszeit (verrechnet)</div>
+        <div class="stat-value">{{ billableHours|currency }} h</div>
     </div>
 </div>
 
@@ -250,6 +252,9 @@
                 <label>Datum und Uhrzeit</label>
                 <input type="datetime-local" name="date">
             </div>
+            <div class="field">
+                <label><input type="checkbox" name="isBillable" checked> Wird verrechnet</label>
+            </div>
             <button class="btn btn-primary" type="submit" name="time_submit">Arbeitszeit speichern</button>
         </form>
     </section>
@@ -308,11 +313,11 @@
 </section>
 
 <section class="card">
-    <div class="card-header"><h2>Arbeitszeiten</h2><strong>{{ directHours|currency }} h</strong></div>
+    <div class="card-header"><h2>Arbeitszeiten</h2><strong>{{ directHours|currency }} h tatsächlich · {{ directBillableHours|currency }} h verrechnet</strong></div>
     {% if times %}
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Stunden</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
+            <thead><tr><th>Datum</th><th>Beschreibung</th><th>Person</th><th class="number">Stunden</th><th>Verrechnet</th>{% if currentUser.canModifyVehicles and not order.isClosed %}<th></th>{% endif %}</tr></thead>
             <tbody>
             {% for time in times %}
                 <tr>
@@ -320,6 +325,7 @@
                     <td>{{ time.description }}</td>
                     <td>{{ time.person }}</td>
                     <td class="number">{{ time.hours|currency }} h</td>
+                    <td>{{ 'Ja' if time.isBillable else 'Nein' }}</td>
                     {% if currentUser.canModifyVehicles and not order.isClosed %}<td class="number"><a class="btn btn-secondary btn-sm" href="{{ url_for('editTime', timeId=time.id) }}">Bearbeiten</a></td>{% endif %}
                 </tr>
             {% endfor %}

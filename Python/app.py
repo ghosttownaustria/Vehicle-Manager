@@ -604,6 +604,7 @@ class WorkTime(db.Model):
     hours = db.Column(db.Float)
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
+    isBillable = db.Column(db.Boolean, nullable=False, default=True)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
 
 
@@ -677,6 +678,16 @@ def initializeDatabase():
         if "quantity" not in costColumns:
             migrations.append(
                 'ALTER TABLE "cost" ADD COLUMN "quantity" FLOAT NOT NULL DEFAULT 1'
+            )
+
+    if "work_time" in tableNames:
+        workTimeColumns = {
+            column["name"] for column in inspector.get_columns("work_time")
+        }
+        if "isBillable" not in workTimeColumns:
+            migrations.append(
+                'ALTER TABLE "work_time" '
+                'ADD COLUMN "isBillable" BOOLEAN NOT NULL DEFAULT 1'
             )
 
     if "user" in tableNames:
@@ -928,6 +939,18 @@ def orderTotalsForCurrentUser(orderItem):
     for attachedVehicle in visibleAttachedVehicles(orderItem):
         totals = addTotals(totals, ownVehicleTotals(attachedVehicle))
     return totals
+
+
+def billableHoursForCurrentUser(orderItem):
+    """Sum the billable hours of the order and its visible attached vehicles."""
+    vehicles = visibleAttachedVehicles(orderItem)
+    workTimes = list(orderItem.times) + [
+        workTime
+        for attachedVehicle in vehicles
+        for attachedOrder in attachedVehicle.orders
+        for workTime in attachedOrder.times
+    ]
+    return sum((item.hours or 0) for item in workTimes if item.isBillable)
 
 
 def vehicleTotalsForCurrentUser(vehicleItem):
@@ -1853,6 +1876,7 @@ def order(orderId):
                     hours=parseFormAmount(request.form.get("hours")),
                     person=request.form.get("person", "").strip(),
                     date=parseFormDate(request.form.get("date")),
+                    isBillable="isBillable" in request.form,
                     order=orderItem,
                 )
             )
@@ -1911,6 +1935,9 @@ def order(orderId):
     directCost = sum(item.purchaseTotal for item in orderItem.costs)
     directIncome = sum((item.amount or 0) for item in orderItem.incomes)
     directHours = sum((item.hours or 0) for item in orderItem.times)
+    directBillableHours = sum(
+        (item.hours or 0) for item in orderItem.times if item.isBillable
+    )
     personUserOptions = staffUsers()
     workTimeUserOptions = staffUsers()
     attachedVehicleSummaries = [
@@ -1950,10 +1977,12 @@ def order(orderId):
         totalCost=totalCost,
         totalIncome=totalIncome,
         totalHours=totalHours,
+        billableHours=billableHoursForCurrentUser(orderItem),
         result=result,
         directCost=directCost,
         directIncome=directIncome,
         directHours=directHours,
+        directBillableHours=directBillableHours,
         attachedVehicleSummaries=attachedVehicleSummaries,
         servicePlanIntervalItems=[
             item for item in orderItem.servicePlanItems if item.kind == "interval"
@@ -2077,6 +2106,7 @@ def editTime(timeId):
         workTime.hours = parseFormAmount(request.form.get("hours"))
         workTime.person = request.form.get("person", "").strip()
         workTime.date = parseFormDate(request.form.get("date"))
+        workTime.isBillable = "isBillable" in request.form
         db.session.commit()
         flash("Arbeitszeit wurde gespeichert.", "success")
         return redirect(url_for("order", orderId=workTime.order.id))
@@ -2181,18 +2211,24 @@ def printOrder(orderId):
 
 
 def parseInvoiceDiscounts(form):
-    """Read discount rows as (description, isPercent, value); skip empty values."""
+    """Read discount rows as (description, isPercent, value, scope); skip empty values."""
     rows = zip(
         form.getlist("discountDescription"),
         form.getlist("discountType"),
+        form.getlist("discountScope"),
         form.getlist("discountValue"),
     )
     discounts = []
-    for description, discountType, value in rows:
+    for description, discountType, scope, value in rows:
         amount = parseFormAmount(value)
         if amount > 0:
             discounts.append(
-                (description.strip() or "Rabatt", discountType == "percent", amount)
+                (
+                    description.strip() or "Rabatt",
+                    discountType == "percent",
+                    amount,
+                    scope if scope in ("parts", "work") else "all",
+                )
             )
     return discounts
 
@@ -2214,11 +2250,12 @@ def parseInvoiceWorkers(form):
 
 
 def groupHoursByPerson(times):
-    """Return [(person, hours)] in order of first appearance."""
+    """Return [(person, billableHours)] in order of first appearance."""
     hoursByPerson = {}
     for item in times:
         person = (item.person or "").strip()
-        hoursByPerson[person] = hoursByPerson.get(person, 0) + (item.hours or 0)
+        billableHours = (item.hours or 0) if item.isBillable else 0
+        hoursByPerson[person] = hoursByPerson.get(person, 0) + billableHours
     return list(hoursByPerson.items())
 
 
@@ -2240,7 +2277,7 @@ def invoiceOrder(orderId):
         try:
             workers = parseInvoiceWorkers(request.form)
             discounts = [
-                (item.description or "Einnahme", False, item.amount or 0)
+                (item.description or "Einnahme", False, item.amount or 0, "all")
                 for item in incomes
                 if str(item.id) in selectedIncomeIds and (item.amount or 0) > 0
             ] + parseInvoiceDiscounts(request.form)

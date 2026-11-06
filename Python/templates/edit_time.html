@@ -29,6 +29,9 @@
             <input id="date" type="datetime-local" name="date"
                    value="{{ workTime.date.strftime('%Y-%m-%dT%H:%M') if workTime.date else '' }}">
         </div>
+        <div class="field">
+            <label><input type="checkbox" name="isBillable"{% if workTime.isBillable %} checked{% endif %}> Wird verrechnet</label>
+        </div>
         <div class="actions">
             <button class="btn btn-primary" type="submit">Änderungen speichern</button>
             <a class="btn btn-secondary" href="{{ url_for('order', orderId=workTime.order.id) }}">Abbrechen</a>

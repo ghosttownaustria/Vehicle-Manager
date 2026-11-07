@@ -535,11 +535,11 @@ def invoiceRows(costs, workers, discounts, roundingCents):
                     item.description,
                     formatNumber(item.quantity),
                     formatCurrency(item.saleAmount),
-                    formatCurrency(item.price),
+                    formatCurrency(item.listPrice),
                 )
             )
         rows.append(
-            ("sum", "Summe Teile", "", "", formatCurrency(sum(i.price for i in costs)))
+            ("sum", "Summe Teile", "", "", formatCurrency(sum(i.listPrice for i in costs)))
         )
         rows.append(("gap", "", "", "", ""))
     if workers:
@@ -675,7 +675,8 @@ def buildInvoicePdf(order, costs, workers, discounts=()):
     document.documentKind = "Rechnung"
     document.documentHeading = order.title or ""
 
-    partsTotal = sum(item.price for item in costs)
+    # Position discounts arrive as regular discount lines, so parts are summed before them.
+    partsTotal = sum(item.listPrice for item in costs)
     workTotal = sum(total for _, _, total in workers)
     subtotal = partsTotal + workTotal
     discountLines, roundingCents = calculateInvoiceDiscounts(

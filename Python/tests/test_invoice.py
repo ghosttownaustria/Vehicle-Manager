@@ -72,6 +72,45 @@ class InvoiceTests(unittest.TestCase):
     def test_new_work_time_is_billable_by_default(self):
         self.assertTrue(self.order.times[0].isBillable)
 
+    def test_price_uses_per_unit_discount(self):
+        cost = self.order.costs[0]
+        cost.discount = 2
+        self.assertAlmostEqual(cost.price, 3 * (15 - 2 * 1.2))
+
+    def test_cost_form_stores_gross_prices_and_discount(self):
+        response = self.client.post(
+            f"/order/{self.order.id}",
+            data={
+                "cost_submit": "1", "description": "Filter", "quantity": "2",
+                "amount": "11,90", "saleAmount": "23.80", "discount": "1,80",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        cost = Cost.query.filter_by(description="Filter").one()
+        self.assertEqual((cost.amount, cost.saleAmount, cost.discount), (11.9, 23.8, 1.8))
+        self.assertEqual(cost.listPrice, 47.6)
+        self.assertEqual(cost.price, 43.27)
+        self.assertEqual(cost.discountTotal, 4.33)
+
+    def test_invoice_rows_show_list_price_and_discount_line(self):
+        from pdfReports import invoiceRows
+
+        cost = self.order.costs[0]
+        cost.discount = 2
+        rows = invoiceRows([cost], [], [("Rabatt Oel", False, 7.2, "all", 720)], 0)
+        self.assertEqual(rows[0][3:], ("15,00 €", "45,00 €"))
+        self.assertIn(("sum", "Summe Teile", "", "", "45,00 €"), rows)
+        self.assertIn(("row", "Rabatt Oel", "", "", "-7,20 €"), rows)
+
+    def test_invoice_pdf_includes_position_discount(self):
+        self.order.costs[0].discount = 2
+        db.session.commit()
+        response = self.client.post(
+            f"/order/{self.order.id}/invoice",
+            data={"cost_id": [str(self.order.costs[0].id)]},
+        )
+        self.assertTrue(response.data.startswith(b"%PDF"))
+
     def test_invoice_pdf_is_generated(self):
         response = self.client.post(
             f"/order/{self.order.id}/invoice",

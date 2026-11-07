@@ -14,27 +14,9 @@
             <label for="description">Beschreibung</label>
             <input id="description" type="text" name="description" value="{{ cost.description }}" required>
         </div>
+        {% set costFieldSpan = 'span-3' %}
+        {% include "_cost_fields.html" %}
         <div class="grid">
-            <div class="field span-4">
-                <label for="quantity">Menge</label>
-                <input id="quantity" type="number" step="any" min="0" name="quantity" value="{{ '%g'|format(cost.quantity if cost.quantity is not none else 1) }}" required>
-            </div>
-            <div class="field span-4">
-                <label for="amount">EK (€)</label>
-                <input id="amount" type="number" step="0.01" min="0" name="amount" value="{{ cost.amount }}" required>
-            </div>
-            <div class="field span-4">
-                <label for="markup">Aufschlag auf EK</label>
-                <select id="markup" name="markup">
-                    {% for value, label in markupOptions %}
-                    <option value="{{ value }}" {{ 'selected' if value == cost.markup }}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field span-4">
-                <label for="saleAmount">VK (€)</label>
-                <input id="saleAmount" type="number" step="0.01" min="0" name="saleAmount" value="{{ cost.saleAmount or 0 }}" required>
-            </div>
             {% set personFieldId = 'person' %}
             {% set personLabel = 'Bezahlt von' %}
             {% set selectedPerson = cost.person %}

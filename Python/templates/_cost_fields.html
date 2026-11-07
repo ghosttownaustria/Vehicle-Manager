@@ -1,0 +1,54 @@
+{# Linked price fields of a position. Expects optional `cost` and `costFieldSpan`.
+   Fields with a name are stored; the others are derived in cost_markup.js. #}
+{% set span = costFieldSpan or 'span-6' %}
+{% set ekGross = cost.amount if cost and cost.amount is not none else 0 %}
+{% set vkGross = cost.saleAmount if cost and cost.saleAmount is not none else 0 %}
+{% set discountValue = cost.discount if cost and cost.discount is not none else 0 %}
+{% set quantityValue = cost.quantity if cost and cost.quantity is not none else 1 %}
+<div class="grid" data-cost-calc data-vat="{{ vatRatePercent }}">
+    <div class="field span-12">
+        <label>Menge</label>
+        <input type="text" inputmode="decimal" autocomplete="off" name="quantity" data-field="quantity" value="{{ '%g'|format(quantityValue) }}" required>
+    </div>
+
+    <div class="field {{ span }}">
+        <label>EK ohne MwSt (€)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" data-field="ekNet">
+    </div>
+    <div class="field {{ span }}">
+        <label>EK mit MwSt (€)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" name="amount" data-field="ekGross" value="{{ '%.2f'|format(ekGross) }}" required>
+    </div>
+
+    <div class="field {{ span }}">
+        <label>Aufschlag EK zu VK (€, netto)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" data-field="markupEur">
+    </div>
+    <div class="field {{ span }}">
+        <label>Aufschlag EK zu VK (%)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" data-field="markupPct">
+    </div>
+
+    <div class="field {{ span }}">
+        <label>VK ohne MwSt (€)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" data-field="vkNet">
+    </div>
+    <div class="field {{ span }}">
+        <label>VK mit MwSt (€)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" name="saleAmount" data-field="vkGross" value="{{ '%.2f'|format(vkGross) }}" required>
+    </div>
+
+    <div class="field {{ span }}">
+        <label>Rabatt pro Stück (€, netto)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" name="discount" data-field="discountEur" value="{{ '%.2f'|format(discountValue) }}">
+    </div>
+    <div class="field {{ span }}">
+        <label>Rabatt (%)</label>
+        <input type="text" inputmode="decimal" autocomplete="off" data-field="discountPct">
+    </div>
+
+    <div class="field span-12">
+        <label>Preis mit MwSt (Menge × (VK ohne MwSt − Rabatt) + MwSt) (€)</label>
+        <input type="text" data-field="price" readonly tabindex="-1">
+    </div>
+</div>

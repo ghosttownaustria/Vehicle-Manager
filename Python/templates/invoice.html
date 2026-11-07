@@ -46,15 +46,16 @@
         {% if costs %}
         <div class="table-wrap">
             <table>
-                <thead><tr><th></th><th>Beschreibung</th><th class="number">Menge</th><th class="number">VK</th><th class="number">Preis</th></tr></thead>
+                <thead><tr><th></th><th>Beschreibung</th><th class="number">Menge</th><th class="number">VK</th><th class="number">Preis</th><th class="number">Rabatt</th></tr></thead>
                 <tbody>
                 {% for cost in costs %}
                     <tr>
-                        <td><input type="checkbox" class="pick-box" name="cost_id" value="{{ cost.id }}" data-price="{{ cost.price }}"{% if (cost.saleAmount or 0) != 0 %} checked{% endif %} aria-label="Position übernehmen"></td>
+                        <td><input type="checkbox" class="pick-box" name="cost_id" value="{{ cost.id }}" data-price="{{ cost.listPrice }}" data-discount="{{ cost.discountTotal }}"{% if (cost.saleAmount or 0) != 0 %} checked{% endif %} aria-label="Position übernehmen"></td>
                         <td>{{ cost.description }}</td>
                         <td class="number">{{ '%g'|format(cost.quantity or 0) }}</td>
                         <td class="number">{{ cost.saleAmount|currency }} €</td>
-                        <td class="number">{{ cost.price|currency }} €</td>
+                        <td class="number">{{ cost.listPrice|currency }} €</td>
+                        <td class="number">{% if cost.discountTotal > 0 %}-{{ cost.discountTotal|currency }} €{% endif %}</td>
                     </tr>
                 {% endfor %}
                 </tbody>

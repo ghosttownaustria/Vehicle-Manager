@@ -211,6 +211,7 @@ def listAllDetails():
                     f"Menge {(cost.quantity or 0):g}, "
                     f"EK {(cost.amount or 0):.2f} €, "
                     f"VK {(cost.saleAmount or 0):.2f} €, "
+                    f"Rabatt {(cost.discount or 0):.2f} €, "
                     f"Preis {cost.price:.2f} €"
                 )
             for workTime in order.times:
@@ -307,6 +308,7 @@ def exportJson(filePath=DEFAULT_EXPORT_FILE):
                         "saleAmount": cost.saleAmount,
                         "quantity": cost.quantity,
                         "markup": cost.markup,
+                        "discount": cost.discount,
                         "person": cost.person,
                         "date": cost.date.isoformat() if cost.date else None,
                     }
@@ -602,6 +604,7 @@ def importJson(filePath=DEFAULT_EXPORT_FILE, replaceExisting=False):
                                     costData.get("quantity", 1) or 0
                                 ),
                                 markup=costData.get("markup") or "manual",
+                                discount=float(costData.get("discount", 0) or 0),
                                 person=costData.get("person", ""),
                                 date=parseDate(costData.get("date")),
                             )

@@ -45,6 +45,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 totalCents -= Math.round(parseFloat(box.dataset.amount) * 100);
             }
         });
+        costBoxes.forEach((box) => {
+            if (box.checked) {
+                totalCents -= Math.round(parseFloat(box.dataset.discount) * 100);
+            }
+        });
         discountRows.querySelectorAll(".discount-row").forEach((row) => {
             const value = parse(row.querySelector("[name='discountValue']"));
             const isPercent = row.querySelector("[name='discountType']").value === "percent";

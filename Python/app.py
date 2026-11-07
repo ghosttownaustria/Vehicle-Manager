@@ -90,15 +90,7 @@ ROLE_OPTIONS = [
 ]
 
 MARKUP_MANUAL = "manual"
-MARKUP_PERCENTAGES = {"ek": 0, "10": 10, "25": 25, "50": 50, "100": 100}
-MARKUP_OPTIONS = [
-    ("ek", "EK"),
-    ("10", "10%"),
-    ("25", "25%"),
-    ("50", "50%"),
-    ("100", "100%"),
-    (MARKUP_MANUAL, "Manuell"),
-]
+VAT_RATE_PERCENT = 20
 
 
 SERVICE_CATEGORIES = [
@@ -585,13 +577,27 @@ class Cost(db.Model):
     saleAmount = db.Column(db.Float, nullable=False, default=0)
     quantity = db.Column(db.Float, nullable=False, default=1)
     markup = db.Column(db.String(10), nullable=False, default="manual")
+    discount = db.Column(db.Float, nullable=False, default=0)
     person = db.Column(db.String(100))
     date = db.Column(db.DateTime)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
 
     @property
+    def listPrice(self):
+        """Quantity times sale price incl. VAT, before the discount."""
+        return round((self.quantity or 0) * (self.saleAmount or 0), 2)
+
+    @property
     def price(self):
-        return (self.saleAmount or 0) * (self.quantity or 0)
+        """Billed price incl. VAT. The discount is a net amount per unit; VAT is applied last."""
+        vatFactor = 1 + VAT_RATE_PERCENT / 100
+        netSalePrice = round((self.saleAmount or 0) / vatFactor, 2)
+        return round((self.quantity or 0) * (netSalePrice - (self.discount or 0)) * vatFactor, 2)
+
+    @property
+    def discountTotal(self):
+        """Discount incl. VAT for the whole position."""
+        return round(self.listPrice - self.price, 2)
 
     @property
     def purchaseTotal(self):
@@ -679,6 +685,10 @@ def initializeDatabase():
             migrations.append(
                 'ALTER TABLE "cost" ADD COLUMN "quantity" FLOAT NOT NULL DEFAULT 1'
             )
+        if "discount" not in costColumns:
+            migrations.append(
+                'ALTER TABLE "cost" ADD COLUMN "discount" FLOAT NOT NULL DEFAULT 0'
+            )
 
     if "work_time" in tableNames:
         workTimeColumns = {
@@ -759,23 +769,17 @@ def parseFormQuantity(value):
     return float(str(value).replace(",", "."))
 
 
-def parseFormMarkup(value):
-    return value if value in MARKUP_PERCENTAGES else MARKUP_MANUAL
-
-
-def calculateSaleAmount(markup, amount, manualSaleAmount):
-    if markup == MARKUP_MANUAL:
-        return manualSaleAmount
-    return round(amount * (1 + MARKUP_PERCENTAGES[markup] / 100), 2)
-
-
 def applyCostForm(cost, form):
+    """Store the gross purchase and sale prices and the per-unit discount.
+
+    All other displayed values (net prices, markup, discount percent, total)
+    are derived in the browser by cost_markup.js and not stored.
+    """
     cost.amount = parseFormAmount(form.get("amount"))
     cost.quantity = parseFormQuantity(form.get("quantity"))
-    cost.markup = parseFormMarkup(form.get("markup"))
-    cost.saleAmount = calculateSaleAmount(
-        cost.markup, cost.amount, parseFormAmount(form.get("saleAmount"))
-    )
+    cost.markup = MARKUP_MANUAL
+    cost.saleAmount = parseFormAmount(form.get("saleAmount"))
+    cost.discount = parseFormAmount(form.get("discount"))
 
 
 def parseFormInteger(value):
@@ -1174,7 +1178,7 @@ def injectCurrentUser():
     return {
         "currentUser": currentUser(),
         "roleOptions": ROLE_OPTIONS,
-        "markupOptions": MARKUP_OPTIONS,
+        "vatRatePercent": VAT_RATE_PERCENT,
     }
 
 
@@ -2284,11 +2288,17 @@ def invoiceOrder(orderId):
         except ValueError:
             flash("Bitte gültige Zahlen für Stunden, Kosten und Rabatte angeben.", "danger")
             return redirect(url_for("invoiceOrder", orderId=orderItem.id))
+        selectedCosts = [item for item in costs if str(item.id) in selectedIds]
+        positionDiscounts = [
+            (f"Rabatt {item.description}".strip(), False, item.discountTotal, "all")
+            for item in selectedCosts
+            if item.discountTotal > 0
+        ]
         buffer = buildInvoicePdf(
             orderItem,
-            [item for item in costs if str(item.id) in selectedIds],
+            selectedCosts,
             workers,
-            discounts,
+            positionDiscounts + discounts,
         )
         return send_file(
             buffer,
